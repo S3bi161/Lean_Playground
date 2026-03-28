@@ -1,0 +1,30 @@
+{"synthetic": false,
+ "schemaVersion": "2025-09-10",
+ "outputs":
+ {"o": ["63c57a6e3685e46e.olean"],
+  "i": "6a258f911f075c4e.ilean",
+  "c": "786fa6b3291d2f3a.c"},
+ "log":
+ [{"message":
+   ".> LEAN_PATH=/home/sebi/Dokumente/Uni/Thesis/lean_examples/.lake/build/lib/lean /home/sebi/.elan/toolchains/leanprover--lean4---v4.28.0/bin/lean /home/sebi/Dokumente/Uni/Thesis/lean_examples/LeanExamples.lean -o /home/sebi/Dokumente/Uni/Thesis/lean_examples/.lake/build/lib/lean/LeanExamples.olean -i /home/sebi/Dokumente/Uni/Thesis/lean_examples/.lake/build/lib/lean/LeanExamples.ilean -c /home/sebi/Dokumente/Uni/Thesis/lean_examples/.lake/build/ir/LeanExamples.c --setup /home/sebi/Dokumente/Uni/Thesis/lean_examples/.lake/build/ir/LeanExamples.setup.json --json",
+   "level": "trace"}],
+ "inputs":
+ [["LeanExamples:deps",
+   [["deps",
+     [["lean_examples/LeanExamples:extraDep",
+       [["@lean_examples:extraDep", "00000000000006bb"]]],
+      ["imports",
+       [["LeanExamples.Basic transitive imports (legacy)", "00000000000006bb"],
+        ["LeanExamples.Basic:importAllArts", "0f13629721568f89"]]]]],
+    ["libs",
+     [["import dynlibs", "00000000000006bb"],
+      ["package external libraries", "00000000000006bb"],
+      ["module dynlibs", "00000000000006bb"],
+      ["module plugins", "00000000000006bb"]]]]],
+  ["Lean 4.28.0, commit 7e01a1bf5c70fc6167d49c345d3bf80596e9a79b",
+   "a96bc04a2e5e9630"],
+  ["/home/sebi/Dokumente/Uni/Thesis/lean_examples/LeanExamples.lean",
+   "3b0fc19ac96db6d5"],
+  ["options", "00000000000006bb"],
+  ["Module.leanArgs: #[]", "00000000000006bb"]],
+ "depHash": "bcdeb22962dba33b"}

@@ -1,0 +1,11 @@
+{"plugins": [],
+ "package": "lean_examples",
+ "options": {},
+ "name": "Main",
+ "isModule": false,
+ "importArts":
+ {"LeanExamples.Basic":
+  ["/home/sebi/Dokumente/Uni/Thesis/lean_examples/.lake/build/lib/lean/LeanExamples/Basic.olean"],
+  "LeanExamples":
+  ["/home/sebi/Dokumente/Uni/Thesis/lean_examples/.lake/build/lib/lean/LeanExamples.olean"]},
+ "dynlibs": []}

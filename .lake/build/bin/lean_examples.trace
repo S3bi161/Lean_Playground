@@ -1,0 +1,21 @@
+{"synthetic": false,
+ "schemaVersion": "2025-09-10",
+ "outputs": "c9419b90928eb1f9",
+ "log":
+ [{"message":
+   ".> /home/sebi/.elan/toolchains/leanprover--lean4---v4.28.0/bin/clang -o /home/sebi/Dokumente/Uni/Thesis/lean_examples/.lake/build/bin/lean_examples /home/sebi/Dokumente/Uni/Thesis/lean_examples/.lake/build/ir/Main.c.o.export /home/sebi/Dokumente/Uni/Thesis/lean_examples/.lake/build/ir/LeanExamples/Basic.c.o.export /home/sebi/Dokumente/Uni/Thesis/lean_examples/.lake/build/ir/LeanExamples.c.o.export -L /home/sebi/.elan/toolchains/leanprover--lean4---v4.28.0/lib/lean --sysroot /home/sebi/.elan/toolchains/leanprover--lean4---v4.28.0 -L /home/sebi/.elan/toolchains/leanprover--lean4---v4.28.0/lib -L /home/sebi/.elan/toolchains/leanprover--lean4---v4.28.0/lib/glibc -lc -lc_nonshared -Wl,--as-needed -l:ld.so -Wl,--no-as-needed -lpthread_nonshared -Wl,--as-needed -Wl,-Bstatic -lgmp -lunwind -luv -Wl,-Bdynamic -Wl,--no-as-needed -fuse-ld=lld -Wl,--start-group -lleancpp -lLean -Wl,--end-group -lStd -Wl,--start-group -lInit -lleanrt -Wl,--end-group -Wl,-Bstatic -lc++ -lc++abi -Wl,-Bdynamic -lLake -Wl,--as-needed -lgmp -luv -lpthread -ldl -lrt -Wl,--no-as-needed -Wl,--gc-sections -lm -ldl -pthread",
+   "level": "trace"}],
+ "inputs":
+ [["linkObjs",
+   [["/home/sebi/Dokumente/Uni/Thesis/lean_examples/.lake/build/ir/Main.c.o.export",
+     "0ac92d5c274f83ac"],
+    ["/home/sebi/Dokumente/Uni/Thesis/lean_examples/.lake/build/ir/LeanExamples/Basic.c.o.export",
+     "d10d0dd7306393aa"],
+    ["/home/sebi/Dokumente/Uni/Thesis/lean_examples/.lake/build/ir/LeanExamples.c.o.export",
+     "31f277a0a3c5f662"]]],
+  ["linkLibs", "00000000000006bb"],
+  ["Lean 4.28.0, commit 7e01a1bf5c70fc6167d49c345d3bf80596e9a79b",
+   "a96bc04a2e5e9630"],
+  ["traceArgs: #[]", "00000000000006bb"],
+  ["x86_64-unknown-linux-gnu", "53a0e8937c307c28"]],
+ "depHash": "70fb6be6c638e971"}
