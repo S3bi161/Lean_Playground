@@ -1,141 +1,83 @@
+import Logic.Prop.Syntax
+import Logic.Prop.Semantics
+import Logic.DL.Syntax
+import Logic.DL.Semantics
 
--- Representation of propositional formulas
-inductive PropositionalForm : Type
-  | var : String -> PropositionalForm
-  | myFalse : PropositionalForm
-  | myNot : PropositionalForm -> PropositionalForm
-  | myAnd : PropositionalForm -> PropositionalForm -> PropositionalForm
+def main : IO Unit := pure ()
+section
+  open Logic.Prop
+  open PropositionalForm
 
--- Syntactic sugar for additional connectives
-def myOr (p q: PropositionalForm): PropositionalForm :=
-  PropositionalForm.myNot (PropositionalForm.myAnd (PropositionalForm.myNot p) (PropositionalForm.myNot q))
+  -- p ∧ q
+  def f : PropositionalForm :=
+    myAnd (var "p") (var "q")
 
-def myTrue : PropositionalForm := PropositionalForm.myNot PropositionalForm.myFalse
+  #check f
 
-def imp (p q: PropositionalForm): PropositionalForm := myOr (PropositionalForm.myNot p) q
+  -- example interpretation I with I(p) = I(q) = 1
+  def I : Valuation
+    | "p" => true
+    | "q" => true
+    | _ => false
 
--- p ∧ q
-def f : PropositionalForm :=
-  PropositionalForm.myAnd (PropositionalForm.var "p") (PropositionalForm.var "q")
+  #eval eval I f -- evaluate I(p ∧ q)
 
-#check f
+end
 
--- propositional evaluation
-def Valuation := String -> Bool
+open Logic.DL
 
-def eval (v : Valuation) : PropositionalForm -> Bool
-  | PropositionalForm.var x => v x
-  | PropositionalForm.myFalse => false
-  | PropositionalForm.myAnd φ ψ => eval v φ && eval v ψ
-  | PropositionalForm.myNot φ => ! eval v φ
+-- example kripke model
+def model: KripkeModel where
+  val := fun atom state => match atom, state with
+    | "p", 0 => True --p holds in state 0
+    | "q", 1 => True -- q holds in state 1
+    | _, _ => False -- anything else false
+  rel := fun atom state state' => match atom, state, state' with
+    | 0, 0, 1 => True -- relation 0 ~ step state 0 to state 1
+    | 1, 1, 0 => True -- relation 1 ~ step state 1 to state 0
+    | _, _, _ => False
 
--- example interpretation I with I(p) = I(q) = 1
-def I : Valuation
-  | "p" => true
-  | "q" => true
-  | _ => false
+-- example dl formulas
+open DLForm
+open Relation
+def p: DLForm := atom "p"
+def q: DLForm := atom "q"
 
-#eval eval I f -- evaluate I(p ∧ q)
+def φ: DLForm := diamond (relAtom 0) q
 
-open PropositionalForm
--- negative normal form
-def nnf : PropositionalForm -> PropositionalForm
-  | var x => var x
-  | myFalse => myFalse
-  | myAnd φ ψ => myAnd (nnf φ) (nnf ψ)
-  | myNot φ => match φ with
-    | var x => myNot (var x)
-    | myFalse => myTrue
-    | myAnd ψ₁ ψ₂ => myOr (nnf (myNot ψ₁)) (nnf (myNot ψ₂))
-    | myNot ψ => nnf ψ
+--evaluate model, 0 ⊧ ⟨0⟩q
+example : eval model φ 0 :=
+by
+  simp[eval, evalRel, model, φ, q]
+  apply Exists.intro 1
+  simp
 
+def α: Relation := comp (relAtom 1) (relAtom 0) --relation 1.0
+def β: Relation := alt (relAtom 0) (relAtom 1) --relation 0 ∪ 1
 
--- logic equivalence
-def equiv (φ ψ: PropositionalForm) : Prop :=
-  ∀ v, eval v φ = eval v ψ
+-- ψ = ⟨1.0⟩q ∧ ⟨0 ∪ 1⟩p
+def ψ: DLForm := conj (diamond α q) (diamond β p)
 
-set_option trace.Meta.Tactic.simp.rewrite true
+--evaluate model, 1 ⊧ ψ
+example : eval model ψ 1 :=
+by
+  simp[eval, evalRel, model, ψ, α, β, conj, Logic.DL.not]
+  apply Exists.intro 1
+  apply Exists.intro 0
+  simp[eval, q]
+  apply Exists.intro 0
+  simp[eval, p]
 
+example : eval model (diamond (anywhere) (conj (not p) (not q))) 0 :=
+by
+  simp[eval, evalRel, model]
+  apply Exists.intro 2
+  simp[Logic.DL.not, conj, eval, p, q]
 
---some simple proofs
-
--- prove deMorgans law
-theorem DeMorgan (φ ψ: PropositionalForm):
-  equiv (myNot (myAnd φ ψ))  (myOr (myNot φ) (myNot ψ)) :=
-  by
-    intro v --"take an arbitrary valuation v"
-    simp[eval, myOr] --"simplify by using definitions of eval, myOr"
-
-
--- prove ¬¬φ ≃ φ
-theorem DoubleNeg (φ: PropositionalForm):
-  equiv (myNot (myNot φ)) φ :=
-  by
-    intro v
-    calc
-      eval v (myNot (myNot φ))
-        = ! (eval v (myNot φ)) := by rfl
-      _ = !(!(eval v  φ)) := by rfl
-      _ = eval v φ := by rewrite[Bool.not_not]; rfl
-
-
---prove φ → ψ ≃ ¬φ ∨ ψ
-theorem Imp (φ ψ: PropositionalForm):
-  equiv (imp φ ψ)  (myOr (myNot φ) ψ) :=
-  by
-    intro v
-    rfl
-
-
---prove φ ∧ ψ ≃ ψ ∧ φ
-theorem AndComm (φ ψ: PropositionalForm):
-  equiv (myAnd φ ψ) (myAnd ψ φ) :=
-  by
-    intro v
-    simp[eval, Bool.and_comm]
-
---a little more verbose
-theorem AndComm' (φ ψ: PropositionalForm):
-  equiv (myAnd φ ψ) (myAnd ψ φ) :=
-  by
-    intro v
-    unfold eval
-    rw[Bool.and_comm]
-
---prove φ ≃ ψ => ¬φ ≃ ψ
-theorem NotCongr (φ ψ: PropositionalForm):
-  equiv φ ψ -> equiv (myNot φ) (myNot ψ) :=
-  by
-    intro h v
-    simp[eval, h v]
-
---prove equivalence is transitive
-theorem EquivTrans (φ ψ ρ: PropositionalForm):
-  equiv φ ψ -> equiv ψ ρ -> equiv φ ρ :=
-  by
-    intro h₁ h₂ v
-    simp[h₁ v, h₂ v]
-
-
-
---prove that the nnf of φ is equivalent to φ
-theorem NNFEquiv (φ: PropositionalForm):
-  equiv (nnf φ) φ ∧ equiv (nnf (myNot φ)) (myNot φ) := --including the negated version to obtain a suitable hypothesis ih.2 for myNot case
-  by
-    induction φ with
-    | var x =>
-      constructor -- apply And.intro (constructor) to split conjunction target
-      case left => intro v; rw[nnf] -- equiv (nnf φ) φ
-      case right => intro v; rw[nnf] -- equiv (nnf (myNot φ)) (myNot φ)
-    | myFalse =>
-      constructor
-      case left => intro v; rw[nnf]
-      case right => intro v; simp[nnf, eval, myTrue]
-    | myAnd ψ₁ ψ₂ ih₁ ih₂ => --e.g. ih₁ is induction hypothesis for ψ₁
-      constructor
-      case left => intro v; simp[nnf, eval, ih₁.1 v, ih₂.1 v]
-      case right => intro v; simp[nnf, eval, ih₁.2 v, ih₂.2 v, myOr] --nnf of negation  transformed into myOr
-    | myNot ψ ih =>
-      constructor
-      case left => exact ih.2 --equiv 
-      case right => intro v; simp[nnf, eval, ih.1 v]
+example: eval model (diamond (wild) q) 0:=
+by
+  simp[eval, evalRel, model]
+  apply Exists.intro 1
+  simp[eval, q]
+  apply Exists.intro 0
+  simp

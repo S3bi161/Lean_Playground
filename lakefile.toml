@@ -3,8 +3,12 @@ version = "0.1.0"
 defaultTargets = ["lean_examples"]
 
 [[lean_lib]]
-name = "LeanExamples"
+name = "Logic"
 
 [[lean_exe]]
 name = "lean_examples"
 root = "Main"
+
+[[require]]
+name = "mathlib"
+scope = "leanprover-community"

@@ -4,8 +4,12 @@
  "name": "Main",
  "isModule": false,
  "importArts":
- {"LeanExamples.Basic":
-  ["/home/sebi/Dokumente/Uni/Thesis/lean_examples/.lake/build/lib/lean/LeanExamples/Basic.olean"],
-  "LeanExamples":
-  ["/home/sebi/Dokumente/Uni/Thesis/lean_examples/.lake/build/lib/lean/LeanExamples.olean"]},
+ {"Logic.Prop.Syntax":
+  ["/home/sebi/Dokumente/Uni/Thesis/lean_examples/.lake/build/lib/lean/Logic/Prop/Syntax.olean"],
+  "Logic.Prop.Semantics":
+  ["/home/sebi/Dokumente/Uni/Thesis/lean_examples/.lake/build/lib/lean/Logic/Prop/Semantics.olean"],
+  "Logic.DL.Syntax":
+  ["/home/sebi/Dokumente/Uni/Thesis/lean_examples/.lake/build/lib/lean/Logic/DL/Syntax.olean"],
+  "Logic.DL.Semantics":
+  ["/home/sebi/Dokumente/Uni/Thesis/lean_examples/.lake/build/lib/lean/Logic/DL/Semantics.olean"]},
  "dynlibs": []}
