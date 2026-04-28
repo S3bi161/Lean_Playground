@@ -7,27 +7,28 @@ open Relation
 set_option trace.Meta.Tactic.simp.rewrite true
 
 --formulas are equivalent to themselves
-theorem equiv_refl (φ: DLForm):
-  equiv φ φ :=
+theorem equiv_refl{RelType AtomType State: Type} (φ: DLForm RelType AtomType):
+  @equiv RelType AtomType State φ φ :=
   by
     simp[equiv]
 
 --and evaluates correct wrt to ∧
-theorem and_correct (φ ψ: DLForm):
-  ∀ M s, eval M (conj φ ψ) s ↔ (eval M φ s) ∧ (eval M ψ s) :=
+theorem and_correct{RelType AtomType State: Type} (φ ψ: DLForm RelType AtomType):
+  ∀ (M: KripkeModel RelType AtomType State) s, eval M (conj φ ψ) s ↔ (eval M φ s) ∧ (eval M ψ s) :=
   by
     intro M s
     simp[conj, not, eval]
+
 -- anything follows from ⊥
-theorem ex_falso (φ: DLForm):
-  eval M falsum n → eval M φ n :=
+theorem ex_falso (M: KripkeModel RelType AtomType State) (φ: DLForm RelType AtomType):
+  eval M falsum s → eval M φ s  :=
   by
     intro h
     simp[eval] at h
 
 
 -- transition s -> s' with some a implies transition s -> s' with wildcard
-theorem ato_imp_wild (M: KripkeModel) (a s s': Nat) :
+theorem ato_imp_wild (M: KripkeModel RelType AtomType State) (a: RelType) (s s': State) :
   evalRel M (Relation.relAtom a) s s' → evalRel M Relation.wild s s' :=
   by
   intro h
@@ -36,7 +37,7 @@ theorem ato_imp_wild (M: KripkeModel) (a s s': Nat) :
   exact ⟨a, h⟩
 
 -- transition s -> s' with wildcard implies there exist atomic rel with s -> s'
-theorem wild_imp_ato (M: KripkeModel):
+theorem wild_imp_ato (M: KripkeModel RelType AtomType State):
   evalRel M Relation.wild s s' → ∃a, evalRel M (Relation.relAtom a) s s' :=
   by
   intro h

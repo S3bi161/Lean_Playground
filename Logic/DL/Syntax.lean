@@ -1,37 +1,48 @@
-import Logic.Prop.Syntax
-
 namespace Logic.DL
 
-inductive Relation : Type
-  | relAtom : Nat → Relation -- atomic relations modelled as natural numbers
-  | anywhere : Relation --
-  | wild : Relation -- wildcard •
-  | comp : Relation → Relation → Relation -- composition α.β
-  | alt : Relation → Relation → Relation -- alternation α ∪ β
-  | iter : Relation → Relation --iteration α*
+inductive Relation (RelType: Type) : Type
+  | relAtom : RelType → Relation RelType
+  | emptyset : Relation RelType -- emptyset ∅
+  | wild : Relation RelType -- wildcard •
+  | comp : Relation RelType → Relation RelType → Relation RelType -- composition α.β
+  | alt : Relation RelType → Relation RelType → Relation RelType -- alternation α ∪ β
+  | iter : Relation RelType → Relation RelType --iteration α*
 
-inductive DLForm : Type
-  | atom : String → DLForm -- atomic propositions modelled as strings
-  | falsum : DLForm -- falsum ⊥
-  | imp : DLForm → DLForm → DLForm -- implication φ → ψ
-  | diamond : Relation → DLForm → DLForm -- diamond ⟨α⟩φ
+inductive DLForm (RelType AtomType: Type) : Type
+  | atom : AtomType → DLForm RelType AtomType -- atomic propositions modelled as strings
+  | falsum : DLForm RelType AtomType -- falsum ⊥
+  | imp : DLForm RelType AtomType → DLForm RelType AtomType → DLForm RelType AtomType -- implication φ → ψ
+  | diamond : Relation RelType → DLForm RelType AtomType → DLForm RelType AtomType -- diamond ⟨α⟩φ
 
 --derived syntactic sugar
 open DLForm
 
 -- negation ¬φ
-def not (φ : DLForm) : DLForm := imp φ falsum
+def not (φ: DLForm RelType AtomType): DLForm RelType AtomType := imp φ falsum
 
 -- true ⊤
-def true : DLForm := not falsum
+def true : DLForm RelType AtomType := not falsum
 
 --conjunction φ ∧ ψ
-def conj (φ ψ: DLForm) : DLForm := not (imp φ (not ψ))
+def conj (φ ψ: DLForm RelType AtomType) : DLForm RelType AtomType := not (imp φ (not ψ))
 
 --disjunction φ ∨ ψ
-def disj (φ ψ: DLForm) : DLForm := imp (not φ) ψ
+def disj (φ ψ: DLForm RelType AtomType) : DLForm RelType AtomType := imp (not φ) ψ
 
 --box [α]φ
-def box (α: Relation) (φ: DLForm) : DLForm := not (diamond α (not φ))
+def box (α: Relation RelType) (φ: DLForm RelType AtomType) : DLForm RelType AtomType := not (diamond α (not φ))
+
+
+-- concrete relation type for dynamic indices
+inductive DynamicIndices: Type
+  | line: Nat → DynamicIndices
+  | dollar: DynamicIndices
+  | hash: DynamicIndices
+deriving DecidableEq, BEq
+
+-- concrete formula type, strings for modelling assertions
+inductive Atoms: Type
+  | name: String → Atoms
+deriving DecidableEq, BEq
 
 end Logic.DL

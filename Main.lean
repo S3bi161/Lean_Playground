@@ -2,6 +2,8 @@ import Logic.Prop.Syntax
 import Logic.Prop.Semantics
 import Logic.DL.Syntax
 import Logic.DL.Semantics
+import Logic.DL.Notation
+import Logic.DL.FinModelSemantics
 
 def main : IO Unit := pure ()
 section
@@ -24,60 +26,59 @@ section
 
 end
 
-open Logic.DL
 
--- example kripke model
-def model: KripkeModel where
-  val := fun atom state => match atom, state with
-    | "p", 0 => True --p holds in state 0
-    | "q", 1 => True -- q holds in state 1
-    | _, _ => False -- anything else false
-  rel := fun atom state state' => match atom, state, state' with
-    | 0, 0, 1 => True -- relation 0 ~ step state 0 to state 1
-    | 1, 1, 0 => True -- relation 1 ~ step state 1 to state 0
-    | _, _, _ => False
+namespace Logic.DL
 
--- example dl formulas
-open DLForm
-open Relation
-def p: DLForm := atom "p"
-def q: DLForm := atom "q"
+abbrev State := List DynamicIndices --use List of dynamic indices where [0, 1] corresponds to 0.1
 
-def φ: DLForm := diamond (relAtom 0) q
 
---evaluate model, 0 ⊧ ⟨0⟩q
-example : eval model φ 0 :=
-by
-  simp[eval, evalRel, model, φ, q]
-  apply Exists.intro 1
-  simp
+def val: List (Atoms × State) :=
+  [ ("q", []),
+    ("p", [0]),
+    ("q", [0, 1]),
+    ("p", [0, 1])] -- "in state 0.1 p holds"
 
-def α: Relation := comp (relAtom 1) (relAtom 0) --relation 1.0
-def β: Relation := alt (relAtom 0) (relAtom 1) --relation 0 ∪ 1
+def rel: List (DynamicIndices × State × State) :=
+  [ (0, [], [0]), -- [] --0--> [0]
+    (1, [0], [0, 1]), -- [0] --1--> [0, 1]/0.1
+    (#, [0, 1], [0, 1, #])]
 
--- ψ = ⟨1.0⟩q ∧ ⟨0 ∪ 1⟩p
-def ψ: DLForm := conj (diamond α q) (diamond β p)
+def M₁: KripkeModel DynamicIndices Atoms State :=
+  mkModel val rel
 
---evaluate model, 1 ⊧ ψ
-example : eval model ψ 1 :=
-by
-  simp[eval, evalRel, model, ψ, α, β, conj, Logic.DL.not]
-  apply Exists.intro 1
-  apply Exists.intro 0
-  simp[eval, q]
-  apply Exists.intro 0
-  simp[eval, p]
 
-example : eval model (diamond (anywhere) (conj (not p) (not q))) 0 :=
-by
-  simp[eval, evalRel, model]
-  apply Exists.intro 2
-  simp[Logic.DL.not, conj, eval, p, q]
+def relH := relDecidable rel
+def valH := valDecidable val
 
-example: eval model (diamond (wild) q) 0:=
-by
-  simp[eval, evalRel, model]
-  apply Exists.intro 1
-  simp[eval, q]
-  apply Exists.intro 0
-  simp
+def states := statesFromList rel
+def rels := relsFromList rel
+
+
+#check M₁
+#check ⟨0⟩ "p"
+#eval evalB M₁ relH valH states rels (⟨0⟩ "p") []
+#eval evalB M₁ relH valH states rels ("p") []
+
+#eval evalFromList val rel (⟨0⟩ "p") []
+#eval evalFromList val rel (⟨0 ∪ 1⟩("p" ∧ "q")) []
+#eval evalFromList val rel (⟨0 ∪ 1⟩("p" ∧ "q")) [0]
+#eval evalFromList val rel ((⟨Relation.comp 0 (Relation.comp 1 •)⟩¬⊥)) []
+
+def val': List (Atoms × State) :=
+  [ ("p", [0]),
+    ("q", [1])
+  ]
+def rel': List (DynamicIndices × State × State) :=
+  [ (0, [], [0]),
+    (0, [], [1]) --branching
+  ]
+
+#eval evalFromList val' rel' (⟨0 ∪ 1⟩"p") []
+#eval evalFromList val' rel' (⟨•⟩ "p") []
+#eval evalFromList val' rel' ([•] "q") []
+#eval evalFromList val' rel' ((⟨0⟩ "p") ∧ (⟨0⟩ ¬ "p")) [] --true due to branching model
+#eval evalFromList val' rel' (⟨•⟩ "q") []
+#eval evalFromList val' rel' (⟨0⟩ "p" ∧ "q") []
+#eval evalFromList val' rel' (⟨0⟩ ¬("p" ∨ "q")) []
+
+end Logic.DL
