@@ -34,10 +34,10 @@ def box (α: Relation RelType) (φ: DLForm RelType AtomType) : DLForm RelType At
 
 
 -- concrete relation type for dynamic indices
-inductive DynamicIndices: Type
-  | line: Nat → DynamicIndices
-  | dollar: DynamicIndices
-  | hash: DynamicIndices
+inductive DynamicIdxSym: Type
+  | line: Nat → DynamicIdxSym
+  | dollar: DynamicIdxSym
+  | hash: DynamicIdxSym
 deriving DecidableEq, BEq
 
 -- concrete formula type, strings for modelling assertions
