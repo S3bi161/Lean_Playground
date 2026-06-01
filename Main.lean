@@ -29,7 +29,7 @@ end
 
 namespace Logic.DL
 
-abbrev State := List DynamicIdxSym --use List of dynamic indices where [0, 1] corresponds to 0.1
+abbrev State := List DynIdxSym --use List of dynamic indices where [0, 1] corresponds to 0.1
 
 
 def val: List (Atoms × State) :=
@@ -39,12 +39,12 @@ def val: List (Atoms × State) :=
     ("p", [0, 1]), -- "in state 0.1 p holds"
     ("r", [0, 1, #])]
 
-def rel: List (DynamicIdxSym × State × State) :=
+def rel: List (DynIdxSym × State × State) :=
   [ (0, [], [0]), -- [] --0--> [0]
     (1, [0], [0, 1]), -- [0] --1--> [0, 1]/0.1
     (#, [0, 1], [0, 1, #])]
 
-def M₁: KripkeModel DynamicIdxSym Atoms State :=
+def M₁: KripkeModel DynIdxSym Atoms State :=
   mkModel val rel
 
 
@@ -71,7 +71,7 @@ def val': List (Atoms × State) :=
   [ ("p", [0]),
     ("q", [1])
   ]
-def rel': List (DynamicIdxSym × State × State) :=
+def rel': List (DynIdxSym × State × State) :=
   [ (0, [], [0]),
     (0, [], [1]) --branching
   ]
@@ -88,7 +88,7 @@ def rel': List (DynamicIdxSym × State × State) :=
 def val'': List (Atoms × State) :=
   [ ("p", [6])]
 
-def rels'': List (DynamicIdxSym × State × State) :=
+def rels'': List (DynIdxSym × State × State) :=
   [ (0, [], [0]),
     (0,[0], [0, 0]),
     (0, [0, 0], [0, 1]),

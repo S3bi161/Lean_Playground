@@ -9,15 +9,23 @@ deriving DecidableEq, BEq
 
 /-
 Expressions
-TODO: Design choice - keep Expressions and Conditions seperated?
 -/
+mutual
+  inductive Expr: Type
+    | const: Int → Expr                 --constant integers
+    | access: Var → Expr → Expr         --variable access `v[e]`
+    | sub: Expr → Expr → Expr           --subtraction `e₀ - e₁
+    | cond: Cond → Expr
+  --| le: Expr → Expr → Expr            --condition `e₀ ≤ e₁`
 
-inductive Expr: Type
-  | const: Int → Expr                 --constant integers
-  | access: Var → Expr → Expr         --variable access `v[e]`
-  | sub: Expr → Expr → Expr           --subtraction `e₀ - e₁`
-  | le: Expr → Expr → Expr            --condition `e₀ ≤ e₁`
-deriving DecidableEq, BEq
+    inductive Cond: Type
+    | le: Expr → Expr → Cond
+
+end
+deriving instance DecidableEq for Expr
+deriving instance DecidableEq for Cond
+deriving instance BEq for Expr
+deriving instance BEq for Cond
 
 -- Arguments
 inductive Arg: Type
@@ -27,9 +35,10 @@ deriving DecidableEq, BEq
 
 --Statements
 inductive Stmt: Type
-  | call: Expr → List Arg → Stmt    --`call INT_PROC_ID (args*)`
+  | call: Expr → List Arg → Stmt     --`call INT_PROC_ID (args*)`
   | assign: Var → Expr → Expr → Stmt --assignment `v[e₀] = e₁`
   | returnIf: Expr → Stmt            --conditional return `if e₀ return`
+  | repeat: Stmt                     -- `repeat` statement present at the end of every procedure
 deriving DecidableEq, BEq
 
 --enumerated statements, i.e. carrying line number
@@ -39,13 +48,12 @@ structure LStmt where
 
 --Procedures
 structure Proc where
-  id: Int                             --proc id
+  id: Int                             --proc id with constant name
   params: List Var                    --formal parameters of a procedure
   body: List LStmt                    --procedure body as a list of numbered stmts
-  loops: Bool                         --flag for repeat keyword
 
 --Programs are just lists of procedures
-abbrev Program := List Proc
+abbrev Program := Int → Option Proc   -- may be undefined
 
 
 --Syntactic sugar
@@ -66,22 +74,21 @@ def unMin (e: Expr): Expr := sub (const 0) e
 --addition
 def add (e₀ e₁: Expr): Expr := sub e₀ (unMin e₁)
 
+namespace Cond
 
-/-
-Derived boolean operators. As of right now, there is nothing enforcing the operands are only 0/1
-- see TODO design choice for expressions
--/
 -- ¬c := c ≤ 0
-def not (c: Expr): Expr := le c (const 0)
+def not (c: Cond): Cond := Cond.le (cond c) (const 0)
 
 -- c₀ ∨ c₁ := ¬c₀ ≤ c₁
-def disj (c₀ c₁: Expr): Expr := le (not c₀) c₁
+def disj (c₀ c₁: Cond): Cond := Cond.le (cond (not c₀)) (cond c₁)
 
--- c₀ ∧ c₁ := ¬(c₀ ≤ ¬c₁)
-def conj (c₀ c₁: Expr): Expr := not (le c₀ (not c₁))
+-- c₀ ∧ c₁ := ¬(¬c₀ ∧ ¬c₁)
+def conj (c₀ c₁: Cond): Cond := not (disj (not c₀) (not c₁))
 
 -- e₀ == e₁ := e₀ ≤ e₁ ∧ e₁ ≤ e₀
-def eq (e₀ e₁: Expr): Expr := conj (le e₀ e₁) (le e₁ e₀)
+def eq (e₀ e₁: Expr): Cond := conj (Cond.le e₀ e₁) (Cond.le e₁ e₀)
 
+end Cond
 end Expr
+
 end Logic.REPEAT

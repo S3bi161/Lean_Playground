@@ -12,24 +12,24 @@ namespace Logic.DL
 
 
 -- relevant coercions
-instance: Coe DynamicIdxSym (Relation DynamicIdxSym) where
+instance: Coe DynIdxSym (Relation DynIdxSym) where
   coe α := Relation.relAtom α
 
-instance: OfNat DynamicIdxSym n where
-  ofNat := DynamicIdxSym.line n
+instance: OfNat DynIdxSym n where
+  ofNat := DynIdxSym.line n
 
-instance: OfNat (Relation DynamicIdxSym) n where
-  ofNat := Relation.relAtom (DynamicIdxSym.line n)
+instance: OfNat (Relation DynIdxSym) n where
+  ofNat := Relation.relAtom (DynIdxSym.line n)
 
-instance: Coe String (DLForm DynamicIdxSym Atoms) where
+instance: Coe String (DLForm DynIdxSym Atoms) where
   coe p := DLForm.atom (Atoms.name p)
 
 instance: Coe String Atoms where
   coe p := Atoms.name p
 
 --basic notations
-notation "$" => DynamicIdxSym.dollar
-notation "#" => DynamicIdxSym.hash
+notation "$" => DynIdxSym.dollar
+notation "#" => DynIdxSym.hash
 
 notation "∅" => Relation.emptyset
 notation "•" => Relation.wild
@@ -38,16 +38,16 @@ notation "⊥" => DLForm.falsum
 
 
 --relation operators
-notation:max α "*" => Relation.iter (α: Relation DynamicIdxSym)
-notation:80 α:81 β:80 => Relation.comp (α: Relation DynamicIdxSym) (β: Relation DynamicIdxSym)
-notation:70 α:71 " ∪ " β:70 => Relation.alt (α: Relation DynamicIdxSym) (β: Relation DynamicIdxSym)
+notation:max α "*" => Relation.iter (α: Relation DynIdxSym)
+notation:80 α:81 β:80 => Relation.comp (α: Relation DynIdxSym) (β: Relation DynIdxSym)
+notation:70 α:71 " ∪ " β:70 => Relation.alt (α: Relation DynIdxSym) (β: Relation DynIdxSym)
 
 --formulas
-abbrev DAForm := DLForm DynamicIdxSym Atoms
+abbrev DAForm := DLForm DynIdxSym Atoms
 
 
-notation:90 "⟨" α "⟩" φ => DLForm.diamond (α: Relation DynamicIdxSym) (φ: DAForm)
-notation:90 "[" α "]" φ => box (α: Relation DynamicIdxSym) (φ: DAForm)
+notation:90 "⟨" α "⟩" φ => DLForm.diamond (α: Relation DynIdxSym) (φ: DAForm)
+notation:90 "[" α "]" φ => box (α: Relation DynIdxSym) (φ: DAForm)
 notation:85 "∼" φ:85 => not (φ: DAForm)
 notation:70 φ:71 " ⋏ " ψ:70 => conj (φ: DAForm) (ψ: DAForm)
 notation:60 φ:61 " ⋎ " ψ:60 => disj (φ: DAForm) (ψ: DAForm)
