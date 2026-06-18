@@ -15,8 +15,8 @@ mutual
     | const: Int → Expr                 --constant integers
     | access: Var → Expr → Expr         --variable access `v[e]`
     | sub: Expr → Expr → Expr           --subtraction `e₀ - e₁
-    | cond: Cond → Expr
-  --| le: Expr → Expr → Expr            --condition `e₀ ≤ e₁`
+    | cond: Cond → Expr                 --condition
+    | fn : Expr                         --current proc id @fn
 
     inductive Cond: Type
     | le: Expr → Expr → Cond

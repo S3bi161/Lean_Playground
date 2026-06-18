@@ -1,5 +1,6 @@
 import Mathlib.Data.Set.Basic
 import Logic.REPEAT.Syntax
+import Logic.DL.Semantics
 
 namespace Logic.REPEAT
 
@@ -14,11 +15,12 @@ deriving DecidableEq
 
 /--
 Encapsulates a control flow trace, which is a triple P = (Q, prompt, tar) where
-* `Q` is a Set of States, represented as `Set DynIndex` => this is defined later inductively
-* `prompt` is the initial call to a procedure
+* `Q` is a Set of States, represented as `Set DynIndex`
+* `prompt` is the initially executed procedure
 * `tar` is the call function mapping from states to called procedures
 -/
 structure CFTrace where
+  Q : Set DynIndex
   prompt : Stmt
   tar : DynIndex → Option Proc
 
@@ -54,157 +56,306 @@ notation "ε" => DynIndex.root
 notation:max s "$" => DynIndex.dollar s
 notation:max s "#" => DynIndex.hash s
 
+/- Closure properties for the set of states Q in a cft-/
 
-/--
-Inductive Proposition defining the states in Q.
-TODO: Currently: On control flow branching at `if e return` both possibilities for val(e) = TRUE and val(e) = FALSE are added.
--/
-inductive InQ (cft: CFTrace): DynIndex → Prop where
-  -- ε in Q
-  | root: InQ cft ε
+--ε ∈ Q and prompt is a call
+def rootClosure (cft: CFTrace) : Prop :=
+  ε ∈ cft.Q ∧
+  ∃ expr args, cft.prompt = Stmt.call expr args
 
-  -- if s ∈ Q and stmt (s) is a call `call expr args` then s 0 ∈ Q
-  | call
-    (s: DynIndex)
-    (expr: Expr)
-    (args: List Arg)
-    (hs: InQ cft s) -- s ∈ Q
-    (hstmt: stmt cft s = some (Stmt.call expr args)): --stmt (s) is a call
-
-    InQ cft (DynIndex.line s 0)
-
-  -- if s i ∈ Q and stmt (s i) is an assignment `v[e₀] = e₁`, then s (i+1) ∈ Q
-  | assign
-    (s: DynIndex)
-    (i: Nat)
-    (v: Var)
-    (e₀ e₁: Expr)
-    (hsi: InQ cft (DynIndex.line s i)) -- s i ∈ Q
-    (hassign: stmt cft (DynIndex.line s i) = some (Stmt.assign v e₀ e₁)): -- stmt (s i) is assignment
-
-    InQ cft (DynIndex.line s (i + 1))
-
-  -- if s i ∈ Q and stmt (s i) is a returnIf `if e return` then s (i+1) ∈ Q
-  | return_next
-    (s: DynIndex)
-    (i: Nat)
-    (e: Expr)
-    (hsi: InQ cft (DynIndex.line s i)) -- s i ∈ Q
-    (hreturn: stmt cft (DynIndex.line s i) = some (Stmt.returnIf e)): -- stmt (s i) is return
-
-    InQ cft (DynIndex.line s (i + 1))
-
-  -- if s i ∈ Q and stmt (s i) is a returnIf `if e return` then s # ∈ Q
-  | return_exit
-    (s: DynIndex)
-    (i: Nat)
-    (e: Expr)
-    (hsi: InQ cft (DynIndex.line s i)) -- s i ∈ Q
-    (hreturn: stmt cft (DynIndex.line s i) = some (Stmt.returnIf e)): -- stmt (s i) is return
-
-    InQ cft (s #)
-
-  -- if s i ∈ Q and stmt (s i) is `repeat` then s $ ∈ Q
-  | repeat_iter
-    (s: DynIndex)
-    (i: Nat)
-    (hsi: InQ cft (DynIndex.line s i)) -- s i ∈ Q
-    (hrepeat: stmt cft (DynIndex.line s i) = some (Stmt.repeat)): -- stmt (s i) is repeat
-
-    InQ cft (s $)
-
-  -- if s i ∈ Q and stmt (s i) is `repeat` then s $ 0 ∈ Q
-  | repeat_entry
-    (s: DynIndex)
-    (i: Nat)
-    (hsi: InQ cft (DynIndex.line s i)) -- s i ∈ Q
-    (hrepeat: stmt cft (DynIndex.line s i) = some (Stmt.repeat)): -- stmt (s i) is repeat
-
-    InQ cft (DynIndex.line  (s $) 0)
-
-  -- if s $ # ∈ Q then s # ∈ Q
-  | repeat_return
-    (s: DynIndex)
-    (hs: InQ cft ((s $) #)): -- s $ # ∈ Q
-
-    InQ cft (s #)
-
-  -- if s i # ∈ Q, then s (i+1) ∈ Q
-  | call_return
-    (s: DynIndex)
-    (i: Nat)
-    (hsi: InQ cft  ((DynIndex.line s i) #) ): -- s i # ∈ Q
-
-    InQ cft (DynIndex.line s (i+1))
-
-
-def CFTrace.Q (cft: CFTrace): Set DynIndex :=
-  { s | InQ cft s}
-
-def wellFormedTar (cft: CFTrace): Prop :=
-
-  -- given stmt (s) is a call `call expr args`, tar (s) maps to an arity-matching procedure
-  (∀ s expr args,
-   (s ∈ cft.Q ∧
-    stmt cft s = some (Stmt.call expr args) →
-    ∃ proc, (cft.tar s = some proc ∧ args.length = proc.params.length)
-    ))
-  ∧
-  -- given stmt (s i) is a `repeat`, tar (s $) = tar (s)
-  (∀ s i proc,
-   (DynIndex.line s i ∈ cft.Q ∧
-    stmt cft (DynIndex.line s i) = some (Stmt.repeat) ∧
-    cft.tar s = some proc) →
-    cft.tar (s $) = some proc)
-
-
-
-def validCFTrace (cft: CFTrace) : Prop :=
-    --ε in Q
-    ε ∈ cft.Q
-  ∧
-    -- if s ∈ Q and stmt (s) is a call `call expr args`, then s 0 ∈ Q and tar(s) maps to a arity matching procedure
-    ∀ s expr args,
+-- if s ∈ Q and stmt (s) is a call `call expr args`, then s 0 ∈ Q and tar(s) maps to a arity matching procedure
+def callClosure (cft: CFTrace) : Prop :=
+  ∀ s expr args,
     ((s ∈ cft.Q ∧ stmt cft s = some (Stmt.call expr args)) →
 
       DynIndex.line s 0 ∈ cft.Q ∧
       ∃ proc, (cft.tar s = some proc ∧ args.length = proc.params.length))
-  ∧
-    -- if s i ∈ Q and stmt(s i) is an assignment `v[e₀] = e₁`, then s (i+1) ∈ Q
-    ∀ s i v e₀ e₁,
+
+-- if s i ∈ Q and stmt(s i) is an assignment `v[e₀] = e₁`, then s (i+1) ∈ Q
+def assignClosure (cft: CFTrace) : Prop :=
+  ∀ s i v e₀ e₁,
     (DynIndex.line s i ∈ cft.Q ∧
      stmt cft (DynIndex.line s i) = some (Stmt.assign v e₀ e₁) →
 
      DynIndex.line s (i + 1) ∈ cft.Q)
 
-  ∧
-    -- if s i ∈ Q and stmt(s i) is a returnIf `if e return ` then either s (i+1) ∈ Q or s # ∈ Q
-    ∀ s i e,
+-- if s i ∈ Q and stmt(s i) is a returnIf `if e return ` then either s (i+1) ∈ Q or s # ∈ Q
+def returnClosure (cft: CFTrace) : Prop :=
+  ∀ s i e,
     (DynIndex.line s i) ∈ cft.Q ∧
      stmt cft (DynIndex.line s i) = some (Stmt.returnIf e) →
 
      (DynIndex.line s (i + 1) ∈ cft.Q ∨ s # ∈ cft.Q)
 
-  ∧
-    -- if s i ∈ Q and stmt(s i) is `repeat`, then s $ ∈ Q, s $ 0 ∈ Q and tar(s $) = tar(s)
-    ∀ s i proc,
+-- if s i ∈ Q and stmt(s i) is `repeat`, then s $ ∈ Q, s $ 0 ∈ Q and tar(s $) = tar(s)
+def repeatClosure (cft: CFTrace) : Prop :=
+  ∀ s i proc,
     (DynIndex.line s i ∈ cft.Q ∧
      stmt cft (DynIndex.line s i) = some (Stmt.repeat) ∧
      cft.tar s = some proc) →
 
-     (s $ ∈ cft.Q ∧
-      DynIndex.line (s $) 0 ∈ cft.Q ∧
-      cft.tar (s $) = some proc)
-  ∧
-    -- if s $ # ∈ Q, then s # ∈ Q
-    ∀ s,
+      (s $ ∈ cft.Q ∧
+       DynIndex.line (s $) 0 ∈ cft.Q ∧
+       cft.tar (s $) = some proc)
+
+-- if s $ # ∈ Q, then s # ∈ Q
+def repeatReturnClosure (cft: CFTrace) : Prop :=
+  ∀ s,
     (s $) # ∈ cft.Q → s # ∈ cft.Q
 
-  ∧
-    -- if s i # ∈ Q, then s (i + 1) ∈ Q
-    ∀ s i,
+-- if s i # ∈ Q, then s (i + 1) ∈ Q
+def callReturnClosure (cft: CFTrace) : Prop :=
+  ∀ s i,
     (DynIndex.line s i) # ∈ cft.Q → DynIndex.line s (i +1) ∈ cft.Q
 
+
+/- No junk properties for the set of states Q in a cft -/
+
+-- if s 0 ∈ Q, then s = ε or stmt(s) is a call `call expr args` with matching tar arity or s = t $ with stmt(t i) = `repeat`
+def noJunkCalls (cft: CFTrace) : Prop :=
+  ∀ s,
+    DynIndex.line s 0 ∈ cft.Q →
+      (s = ε ∨
+       (∃ expr args proc, s ∈ cft.Q ∧ stmt cft s = some (Stmt.call expr args) ∧
+        cft.tar s = some proc ∧ args.length = proc.params.length) ∨
+       (∃ t i, s = t $ ∧ DynIndex.line t i ∈ cft.Q ∧ stmt cft (DynIndex.line t i) = some (Stmt.repeat))
+       )
+
+-- if s i+1 ∈ Q, then s i ∈ Q and stmt(s i) is an assign `v[e₀] = e₁` or returnIf `if e return`
+def noJunkLines (cft: CFTrace) : Prop :=
+  ∀ s i,
+    DynIndex.line s (i+1) ∈ cft.Q →
+      ((∃ v e₀ e₁,
+       DynIndex.line s i ∈ cft.Q ∧
+       stmt cft (DynIndex.line s i) = some (Stmt.assign v e₀ e₁)) ∨
+      (∃ e,
+       DynIndex.line s i ∈ cft.Q ∧
+       stmt cft (DynIndex.line s i) = some (Stmt.returnIf e)))
+
+-- if s # ∈ Q, then s i ∈ Q and stmt(s i) is a returnIf `if e return` or (s $)# ∈ Q
+def noJunkReturns (cft: CFTrace) : Prop :=
+  ∀ s,
+    s # ∈ cft.Q →
+      ((∃ i e,
+       DynIndex.line s i ∈ cft.Q ∧
+       stmt cft (DynIndex.line s i) = some (Stmt.returnIf e)) ∨
+      (s $)# ∈ cft.Q)
+
+-- if s $ ∈ Q, then s i ∈ Q and stmt(s i) is a `repeat`
+def noJunkRepeats (cft: CFTrace) : Prop :=
+  ∀ s,
+    s $ ∈ cft.Q →
+      (∃ i,
+       DynIndex.line s i ∈ cft.Q ∧
+       stmt cft (DynIndex.line s i) = some (Stmt.repeat))
+
+
+def cftClosure (cft: CFTrace) : Prop :=
+  rootClosure cft ∧
+  callClosure cft ∧
+  assignClosure cft ∧
+  returnClosure cft ∧
+  repeatClosure cft ∧
+  repeatReturnClosure cft ∧
+  callReturnClosure cft
+
+def cftNoJunk (cft: CFTrace) : Prop :=
+  noJunkCalls cft ∧
+  noJunkLines cft ∧
+  noJunkReturns cft ∧
+  noJunkRepeats cft
+
+def validCFTrace (cft: CFTrace) : Prop :=
+  cftClosure cft ∧ cftNoJunk cft
+
+
+-- val is an arbitrary variable valuation. Validity based on a quasi execution is defined as prop
+abbrev Valuation :=
+  DynIndex → Var → Int → Int
+
+-- eval on Conds and Exprs
+mutual
+  def evalExpr (cft: CFTrace) (val: Valuation) (s: DynIndex): Expr → Int
+    | Expr.const c => c
+    | Expr.access x e => val s x (evalExpr cft val s e)
+    | Expr.sub e₁ e₂ => evalExpr cft val s e₁ - evalExpr cft val s e₂
+    | Expr.cond c => evalCond cft val s c
+    | Expr.fn => match s with
+        | DynIndex.line t _ =>
+          match cft.tar t with
+            | some proc => proc.id
+            | _ => -1             --should not occur in valid execution
+        | _ => -1                 --should not occur in valid execution, except for ε! => Valid programs can't use @fn in prompt!
+  def evalCond (cft: CFTrace) (val: Valuation) (s: DynIndex): Cond → Int
+    | Cond.le e₁ e₂ => if evalExpr cft val s e₁ ≤ evalExpr cft val s e₂ then
+        1
+      else
+        0
+end
+
+-- constrain val to be a valid val on given QuasiExecution
+-- val(ε) = seed(ε)
+def valRoot (val: Valuation) (q: QuasiExecution) : Prop :=
+  val ε = q.seed ε
+
+-- val(s0) (x) = seed(s0) (x) if x not a param
+def valCallNoPar (val: Valuation) (q: QuasiExecution) : Prop :=
+  ∀ s expr args proc,
+    stmt q.cft s = some (Stmt.call expr args) ∧
+    q.cft.tar s = some proc →
+      ∀ x, (x ∉ proc.params → val (DynIndex.line s 0) x = q.seed (DynIndex.line s 0) x)
+
+-- val(s0) (x) = val(s) (y) if x is param and y is arg for x
+def valCallPar (val: Valuation) (q: QuasiExecution) : Prop :=
+  ∀ s expr args proc,
+    stmt q.cft s = some (Stmt.call expr args) ∧
+    q.cft.tar s = some proc ∧
+    ∀ x y, (x, y) ∈ (List.zip proc.params args) →
+      (val (DynIndex.line s 0) x =
+       val s (match y with         -- y is of type arg, which can be either ref or var
+              | Arg.var v => v
+              | Arg.ref v => v))
+
+-- val(s i+1) (x) (k) = eval (s i, rhs) if stmt (s i) is assignment `x[e] = rhs` with eval(s i, e) = k
+def valAssignHit (val: Valuation) (q: QuasiExecution) : Prop :=
+  ∀ s i x k e rhs,
+    stmt q.cft (DynIndex.line s i) = some (Stmt.assign x e rhs) ∧
+    evalExpr q.cft val (DynIndex.line s i) e = k →
+      val (DynIndex.line s (i+1)) x k = evalExpr q.cft val (DynIndex.line s i) rhs
+
+-- val(s i+1) (x) (k) = val(s i) (x) (k) if stmt (s i) is assignment `x[e] = rhs` with eval(s i, e) ≠ k
+def valAssignMiss (val: Valuation) (q: QuasiExecution) : Prop :=
+  ∀ s i x e rhs k,
+    stmt q.cft (DynIndex.line s i) = some (Stmt.assign x e rhs) ∧
+    evalExpr q.cft val (DynIndex.line s i) e ≠ k →
+      val (DynIndex.line s (i+1)) x k = val (DynIndex.line s i) x k
+
+-- val(s i+1) (x) = val(s i) (x) if stmt (s i) is assignment `y[e] = rhs` with y ≠ x
+def valAssignOther (val: Valuation) (q: QuasiExecution) : Prop :=
+  ∀ s i x y e rhs,
+    stmt q.cft (DynIndex.line s i) = some (Stmt.assign y e rhs) ∧
+    y ≠ x →
+      (val (DynIndex.line s (i+1)) x = val (DynIndex.line s i) x)
+
+-- val(s i+1) = val (s i) if stmt (s i) is returnIf `if e return` and s i+1 ∈ Q
+def valNoReturn (val: Valuation) (q: QuasiExecution) : Prop :=
+  ∀ s i e,
+    stmt q.cft (DynIndex.line s i) = some (Stmt.returnIf e) ∧
+    (DynIndex.line s (i+1)) ∈ q.cft.Q →
+      val (DynIndex.line s (i+1)) = val (DynIndex.line s i)
+
+-- val(s #) = val (s i) if stmt (s i) is returnIf `if e return` and s i+1 ∉ Q
+def valReturn (val: Valuation) (q: QuasiExecution) : Prop :=
+  ∀ s i e,
+    stmt q.cft (DynIndex.line s i) = some (Stmt.returnIf e) ∧
+    (DynIndex.line s (i+1)) ∉ q.cft.Q →
+      val (s #) = val (DynIndex.line s i)
+
+-- val (s $) = val (s i) if stmt (s i) is `repeat`
+def valRepeat (val: Valuation) (q: QuasiExecution) : Prop :=
+  ∀ s i,
+    stmt q.cft (DynIndex.line s i) = some (Stmt.repeat) →
+      val (s $) = val (DynIndex.line s i)
+
+-- val (s $ 0) = val (s $)
+def valRepeatEntry (val: Valuation) (q: QuasiExecution) : Prop :=
+  ∀ s,
+    s $ ∈ q.cft.Q →
+      val (DynIndex.line (s $) 0) = val (s $)
+
+
+-- val (s #) = val (s $ #)
+def valRepeatReturn (val: Valuation) (q: QuasiExecution) : Prop :=
+  ∀ s,
+    (s $) # ∈ q.cft.Q →
+      val (s #) = val ((s $) #)
+
+-- val (s i+1) (x) = val (s i) (x) if stmtm (s i) is `call expr args` and no args are passed by `ref`
+def valCallReturnByValue (val: Valuation) (q: QuasiExecution) : Prop :=
+  ∀ s i expr args proc,
+    stmt q.cft (DynIndex.line s i) = some (Stmt.call expr args) ∧
+    q.cft.tar (DynIndex.line s i) = some proc ∧
+    ∀ x, Arg.ref x ∉ args →
+      (val (DynIndex.line s (i+1)) x = val (DynIndex.line s i) x)
+
+-- val (s i+1) (x) = val (s i #) (y) if stmt (s i) is `call expr args` and x was passed for param x by `ref`
+def valCallReturnByRef (val: Valuation) (q: QuasiExecution) : Prop :=
+  ∀ s i expr args proc,
+    stmt q.cft (DynIndex.line s i) = some (Stmt.call expr args) ∧
+    q.cft.tar (DynIndex.line s i) = some proc ∧
+    ∀ x y, (y, Arg.ref x) ∈ List.zip proc.params args →
+      (val (DynIndex.line s (i +1)) x = val ((DynIndex.line s i) #) y)
+
+def validValuation (val: Valuation) (q: QuasiExecution) : Prop :=
+  valRoot val q ∧
+  valCallNoPar val q ∧
+  valCallPar val q ∧
+  valAssignHit val q ∧
+  valAssignMiss val q ∧
+  valAssignOther val q ∧
+  valNoReturn val q ∧
+  valReturn val q ∧
+  valRepeat val q ∧
+  valRepeatEntry val q ∧
+  valRepeatReturn val q ∧
+  valCallReturnByValue val q ∧
+  valCallReturnByRef val q
+
+
+-- constrain quasi executions to obtain executions
+
+-- if stmt(s i) is returnIf `if e return` then s i+1 ∈ Q ↔ eval(s i, cond) --TODO: Paper mistake?
+def execReturn (val: Valuation) (q: QuasiExecution) : Prop :=
+  ∀ s i e,
+    stmt q.cft (DynIndex.line s i) = some (Stmt.returnIf e) →
+      (DynIndex.line s (i+1) ∈ q.cft.Q ↔
+       evalExpr q.cft val (DynIndex.line s i) e = 0)
+
+-- if stmt(s) is `call expr args`, then tar(s) = eval(s, expr)
+def execCallTarget (val: Valuation) (q: QuasiExecution) : Prop :=
+  ∀ s expr args proc,
+    stmt q.cft s = some (Stmt.call expr args) ∧
+    q.cft.tar s = some proc →
+      proc.id = evalExpr q.cft val s expr
+
+-- if stmt(s) is `call expr args`, then tar(s) = eval(s 0, @fn)
+def execCallFn (val: Valuation) (q: QuasiExecution) : Prop :=
+  ∀ s expr args proc,
+    stmt q.cft s = some (Stmt.call expr args) ∧
+    q.cft.tar s = some proc →
+      proc.id = evalExpr q.cft val (DynIndex.line s 0) Expr.fn
+
+def validExecution (val: Valuation) (q: QuasiExecution) : Prop :=
+  execReturn val q ∧
+  execCallTarget val q ∧
+  execCallFn val q
+
+
+/--An Execution is a quasi execution with valuation.
+It also carries validity proofs for the CFTrace, valuation and execution-/
+structure Execution where
+  quasi : QuasiExecution
+  val: Valuation
+
+  hCFT: validCFTrace quasi.cft
+  hVal: validValuation val quasi
+  hExec: validExecution val quasi
+
+
+
+def executionModel (e: Execution) :
+  DL.KripkeModel DL.DynIdxSym Cond DynIndex where
+  val := λ cond s ↦ s ∈ e.quasi.cft.Q ∧ evalCond e.quasi.cft e.val s cond = 1
+  rel := λ a u ua ↦ u ∈ e.quasi.cft.Q ∧ match a with
+                                        | .line i =>
+                                          ua = DynIndex.line u i ∧
+                                          ua ∈ e.quasi.cft.Q
+                                        | .dollar =>
+                                          ua = u $ ∧
+                                          ua ∈ e.quasi.cft.Q
+                                        | .hash =>
+                                          ua = u # ∧
+                                          ua ∈ e.quasi.cft.Q
 
 
 end Logic.REPEAT

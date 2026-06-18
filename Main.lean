@@ -2,104 +2,82 @@ import Logic.Prop.Syntax
 import Logic.Prop.Semantics
 import Logic.DL.Syntax
 import Logic.DL.Semantics
-import Logic.DL.Notation
+--import Logic.DL.Notation
 import Logic.DL.FinModelSemantics
+import Logic.REPEAT.Semantics
+
 
 def main : IO Unit := pure ()
-section
-  open Logic.Prop
-  open PropositionalForm
 
-  -- p ∧ q
-  def f : PropositionalForm :=
-    myAnd (var "p") (var "q")
+open Logic.REPEAT
 
-  #check f
+def testQ : Set DynIndex := {ε, DynIndex.line ε 0, (DynIndex.line ε 0) #}
+def dummyProc : Proc := {
+  id := 0,
+  params := [],
+  body := []
+}
+def testCFT : CFTrace := {
+  Q := testQ,
+  prompt := Stmt.call (Expr.const 0) [],
+  tar := λ _ ↦ some dummyProc
+}
 
-  -- example interpretation I with I(p) = I(q) = 1
-  def I : Valuation
-    | "p" => true
-    | "q" => true
-    | _ => false
+def testSeed : DynIndex → Var → Int → Int :=
+  λ _ _ _ ↦ 0
 
-  #eval eval I f -- evaluate I(p ∧ q)
+def testVal : DynIndex → Var → Int → Int :=
+  λ _ _ _ ↦ 0
 
-end
+def testExec : Execution := {
+  quasi := {
+    cft := testCFT,
+    seed := testSeed
+  },
+  val := testVal,
+  hCFT := by sorry,
+  hVal := by sorry,
+  hExec := by sorry
+}
 
+def M := executionModel testExec
+#check Logic.DL.DynIdxSym.line
+#check M.rel
+example : M.rel (Logic.DL.DynIdxSym.line 0) ε (DynIndex.line ε 0) := by
+  simp[M, executionModel]
+  constructor
+  · constructor
+    rfl
+  · right
+    left
+    rfl
 
-namespace Logic.DL
+#check (Logic.DL.evalRel M)
 
-abbrev State := List DynIdxSym --use List of dynamic indices where [0, 1] corresponds to 0.1
+#check (Logic.DL.evalRel M (Logic.DL.Relation.relAtom (Logic.DL.DynIdxSym.line 0)))
 
+#check (Logic.DL.evalRel M (Logic.DL.Relation.relAtom (Logic.DL.DynIdxSym.line 0)) DynIndex.root)
 
-def val: List (Atoms × State) :=
-  [ ("q", []),
-    ("p", [0]),
-    ("q", [0, 1]),
-    ("p", [0, 1]), -- "in state 0.1 p holds"
-    ("r", [0, 1, #])]
-
-def rel: List (DynIdxSym × State × State) :=
-  [ (0, [], [0]), -- [] --0--> [0]
-    (1, [0], [0, 1]), -- [0] --1--> [0, 1]/0.1
-    (#, [0, 1], [0, 1, #])]
-
-def M₁: KripkeModel DynIdxSym Atoms State :=
-  mkModel val rel
-
-
-def relH := relDecidable rel
-def valH := valDecidable val
-
-def states := statesFromList rel
-def rels := relsFromList rel
-
-
-#check M₁
-#check ⟨0⟩ "p"
-#eval evalB M₁ relH valH states rels (⟨0⟩ "p") []
-#eval evalB M₁ relH valH states rels ("p") []
-
-#eval evalFromList val rel (⟨0 1⟩ "p") []
-#eval evalFromList val rel (⟨0 ∪ 1⟩("p" ⋏ "q")) []
-#eval evalFromList val rel (⟨0 ∪ 1⟩("p" ⋏ "q")) [0]
-#eval evalFromList val rel ((⟨0 1 •⟩ ∼⊥)) []
-#eval evalFromList val rel (⟨•*⟩ "r") []
-#eval evalFromList val rel (⟨0*⟩ "r") []
-
-def val': List (Atoms × State) :=
-  [ ("p", [0]),
-    ("q", [1])
-  ]
-def rel': List (DynIdxSym × State × State) :=
-  [ (0, [], [0]),
-    (0, [], [1]) --branching
-  ]
-
-#eval evalFromList val' rel' (⟨0 ∪ 1⟩"p") []
-#eval evalFromList val' rel' (⟨•⟩ "p") []
-#eval evalFromList val' rel' ([•] "q") []
-#eval evalFromList val' rel' ((⟨0⟩ "p") ⋏ (⟨0⟩ ∼"p")) [] --true due to branching model
-#eval evalFromList val' rel' (⟨•⟩ "q") []
-#eval evalFromList val' rel' (⟨0⟩ "p" ⋏ "q") []
-#eval evalFromList val' rel' (⟨0⟩ ∼("p" ⋎ "q")) []
-
-
-def val'': List (Atoms × State) :=
-  [ ("p", [6])]
-
-def rels'': List (DynIdxSym × State × State) :=
-  [ (0, [], [0]),
-    (0,[0], [0, 0]),
-    (0, [0, 0], [0, 1]),
-    (0, [0, 1], [0, 2]),
-    (0, [0, 2], [1]),
-    (1, [1], [6]),
-    (1, [6], [])
-  ]
-
-#eval evalFromList val'' rels'' (⟨(0*) 1*⟩"p") []
-#eval evalFromList val'' rels'' ([1*]"p") []
-#eval evalFromList val'' rels'' (⟨(0 ∪ 1)*⟩"p") []
-#eval evalFromList val'' rels'' (⟨•*⟩ "p") []
-end Logic.DL
+example : Logic.DL.evalRel M
+                 (Logic.DL.Relation.comp
+                    (Logic.DL.Relation.relAtom (Logic.DL.DynIdxSym.line 0))
+                    (Logic.DL.Relation.relAtom Logic.DL.DynIdxSym.hash))
+                  DynIndex.root
+                  ((DynIndex.line DynIndex.root 0) # ) := by
+  simp[Logic.DL.evalRel]
+  use (DynIndex.line ε 0)
+  simp[M, executionModel]
+  constructor
+  · constructor
+    · constructor
+      rfl
+    · right
+      left
+      rfl
+  · constructor
+    · right
+      left
+      rfl
+    · right
+      right
+      constructor

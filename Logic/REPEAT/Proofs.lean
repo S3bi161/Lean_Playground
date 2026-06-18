@@ -2,71 +2,160 @@ import Logic.REPEAT.Semantics
 
 namespace Logic.REPEAT
 
-theorem root_in_Q (cft: CFTrace):
-  ε ∈ cft.Q := by
-    exact InQ.root
+-- s i+1 ∈ Q → s i ∈ Q in a valid cft
+theorem line_predecessor
+  (cft: CFTrace)
+  (hcftValid: validCFTrace cft)
+  (hline: (DynIndex.line s (i+1)) ∈ cft.Q) :
+  ((DynIndex.line s i) ∈ cft.Q) := by
 
-theorem repeat_entry_in_Q (cft: CFTrace) (s: DynIndex) (i: Nat):
-  DynIndex.line s i ∈ cft.Q →
-  stmt cft (DynIndex.line s i) = some (Stmt.repeat) →
-  InQ cft (DynIndex.line (s $) 0) := by
-    intro hsInQ hrep
-    --intro hrep
+    have hNoJunkLines := by
+      unfold validCFTrace at hcftValid
+      unfold cftNoJunk at hcftValid
+      unfold noJunkLines at hcftValid
+      exact hcftValid.right.right.left s i hline
 
-    exact InQ.repeat_entry s i hsInQ hrep
+    cases hNoJunkLines with
+    | inl hAssign =>
+        cases hAssign with
+        | intro v hAssign' =>
+          cases hAssign' with
+          | intro e₁ hAssign'' =>
+            cases hAssign'' with
+            | intro e₂ h => exact h.left
+    | inr hReturn =>
+        cases hReturn with
+        | intro e hReturn' => exact hReturn'.left
 
-theorem valid_tar_implies_valid_cft (cft: CFTrace):
-  wellFormedTar cft → validCFTrace cft := by
-    intro hwellFormedTar
-    simp [wellFormedTar, validCFTrace] at *
-    constructor
-    · exact InQ.root
-    · intro s e args
-      constructor
-      intro hsInQ
-      intro hStmt
-      sorry
-      sorry
+-- s i+1 ∈ Q → stmt (s i) is assignment or returnIf
+theorem line_successor_origin
+  (cft: CFTrace)
+  (hcftValid: validCFTrace cft)
+  (hline: (DynIndex.line s (i+1) ) ∈ cft.Q):
+  (∃ v e₀ e₁, stmt cft (DynIndex.line s i) = some (Stmt.assign v e₀ e₁)) ∨
+  (∃ e, stmt cft (DynIndex.line s i) = some (Stmt.returnIf e)) := by
+
+  have hNoJunkLines := by
+    unfold validCFTrace at hcftValid
+    unfold cftNoJunk at hcftValid
+    unfold noJunkLines at hcftValid
+    exact hcftValid.right.right.left s i hline
+
+  cases hNoJunkLines with
+  | inl hAssign =>
+    cases hAssign with
+    | intro v hAssign' =>
+      cases hAssign' with
+      | intro e₀ hAssign'' =>
+        cases hAssign'' with
+        | intro e₁ h => left
+                        use v, e₀, e₁
+                        exact h.right
+  | inr hReturn =>
+    cases hReturn with
+    | intro e hReturn' => right
+                          use e
+                          exact hReturn'.right
 
 
+theorem call_tar_exists
+  (cft: CFTrace)
+  (hcftValid: validCFTrace cft)
+  (hcall: stmt cft s = some (Stmt.call expr args)):
+  ∃ proc, cft.tar s = some proc := by sorry
 
---TODO: IH is too weak
-theorem no_hash_line (cft: CFTrace):
-  ∀ t, InQ cft t →
-  (∀ s i, t ≠ DynIndex.line (s #) i) ∧ -- no line comes after #
-  (∀ s, t ≠ (s #) $) ∧                 -- no dollar comes after #
-  (∀ s, t ≠ (s #) #) := by             -- no hash after hash
-    intro t h
-    --intro h
-    induction h with
-    | root => simp
-    | call s expr args hs hstmt ih =>
-                                      constructor
-                                      · intro s' i heq
-                                        cases heq
-                                        simp[stmt] at *
 
-                                      · constructor
-                                        · intro s heq
-                                          cases heq
-                                        · intro s heq
-                                          cases heq
-    | assign s i v e₀ e₁ hsi hassign ih =>
-                                      simp at *
-                                      exact ih
-    | return_next s i e hsi hreturn ih =>
-                                      simp at *
-                                      exact ih
-    | return_exit s i e hsi hreturn ih =>
-                                      simp at *
-                                      exact ih
-    | repeat_iter s i hsi hrepeat ih =>
-                                      simp at *
-                                      exact ih
-    | repeat_entry s i hsi hrepeat ih =>
-                                      simp at *
-    | repeat_return s hs ih => sorry
+--after an assign, exactly one array cell is changed
+theorem assign_changes_exactly_one_cell
+  (qe: QuasiExecution)
+  (hVal: validValuation val qe)
+  (hStmt: stmt qe.cft (DynIndex.line s i) = some (Stmt.assign v e₀ e₁)):
 
-    | call_return s i hsi ih => sorry
+  val (DynIndex.line s (i+1)) v k =
+  if evalExpr qe.cft val (DynIndex.line s i) e₀ = k then
+    evalExpr qe.cft val (DynIndex.line s i) e₁
+  else
+    val (DynIndex.line s i) v k := by
+
+    by_cases hk: evalExpr qe.cft val (DynIndex.line s i) e₀ = k
+    · have hAssignHit := by
+        unfold validValuation at hVal
+        unfold valAssignHit at hVal
+        exact hVal.right.right.right.left s i v k e₀ e₁
+
+      have hHit := hAssignHit ⟨hStmt, hk⟩
+      simp[hk]
+      exact hHit
+    · have hAssignMiss := by
+        unfold validValuation at hVal
+        unfold valAssignMiss at hVal
+        exact hVal.right.right.right.right.left s i v e₀ e₁ k
+      have hMiss := hAssignMiss ⟨hStmt, hk⟩
+      simp[hk]
+      exact hMiss
+
+theorem rel_iff
+  (e: Execution)
+  (s s': DynIndex):
+
+  (executionModel e).rel (DL.DynIdxSym.line i) s s' ↔
+  s ∈ e.quasi.cft.Q ∧
+  s' = DynIndex.line s i ∧
+  s' ∈ e.quasi.cft.Q := by
+
+    simp[executionModel]
+
+
+/- The kripke model execution model induced by an execution e is always non-branching-/
+theorem rel_non_branching_line
+  (e: Execution)
+  (s t₁ t₂: DynIndex)
+  (h₁: (executionModel e).rel (DL.DynIdxSym.line i) s t₁)
+  (h₂: (executionModel e).rel (DL.DynIdxSym.line i) s t₂):
+
+  t₁ = t₂ := by
+
+    simp[executionModel] at *
+    rw[h₁.right.left]
+    rw[h₂.right.left]
+
+theorem rel_non_branching_dollar
+  (e: Execution)
+  (s t₁ t₂: DynIndex)
+  (h₁: (executionModel e).rel (DL.DynIdxSym.dollar) s t₁)
+  (h₂: (executionModel e).rel (DL.DynIdxSym.dollar) s t₂):
+
+  t₁ = t₂ := by
+
+    simp[executionModel] at *
+    rw[h₁.right.left]
+    rw[h₂.right.left]
+
+theorem rel_non_branching_hash
+  (e: Execution)
+  (s t₁ t₂: DynIndex)
+  (h₁: (executionModel e).rel (DL.DynIdxSym.hash) s t₁)
+  (h₂: (executionModel e).rel (DL.DynIdxSym.hash) s t₂):
+
+  t₁ = t₂ := by
+
+    simp[executionModel] at *
+    rw[h₁.right.left]
+    rw[h₂.right.left]
+
+
+theorem model_non_branching
+  (e: Execution):
+  DL.nonBranching (executionModel e) := by
+    simp[DL.nonBranching]
+    intro relAtom
+    intro s t₁ t₂
+    intro h₁
+    intro h₂
+    cases relAtom with
+    | line i => exact rel_non_branching_line e s t₁ t₂ h₁ h₂
+    | dollar => exact rel_non_branching_dollar e s t₁ t₂ h₁ h₂
+    | hash => exact rel_non_branching_hash e s t₁ t₂ h₁ h₂
+
 
 end Logic.REPEAT
