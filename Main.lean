@@ -9,9 +9,9 @@ import Logic.REPEAT.Semantics
 
 def main : IO Unit := pure ()
 
-open Logic.REPEAT
+namespace Logic.DL
 
-def testQ : Set DynIndex := {ε, DynIndex.line ε 0, (DynIndex.line ε 0) #}
+def testQ : Set DynIndex := {ε, line ε 0, (line ε 0) ∘ #}
 def dummyProc : Proc := {
   id := 0,
   params := [],
@@ -43,7 +43,7 @@ def testExec : Execution := {
 def M := executionModel testExec
 #check Logic.DL.DynIdxSym.line
 #check M.rel
-example : M.rel (Logic.DL.DynIdxSym.line 0) ε (DynIndex.line ε 0) := by
+example : M.rel (Logic.DL.DynIdxSym.line 0) ε (line ε 0) := by
   simp[M, executionModel]
   constructor
   · constructor
@@ -60,12 +60,12 @@ example : M.rel (Logic.DL.DynIdxSym.line 0) ε (DynIndex.line ε 0) := by
 
 example : Logic.DL.evalRel M
                  (Logic.DL.Relation.comp
-                    (Logic.DL.Relation.relAtom (Logic.DL.DynIdxSym.line 0))
-                    (Logic.DL.Relation.relAtom Logic.DL.DynIdxSym.hash))
-                  DynIndex.root
-                  ((DynIndex.line DynIndex.root 0) # ) := by
+                    (Logic.DL.Relation.relAtom (ι 0))
+                    (Logic.DL.Relation.relAtom #))
+                  ε
+                  ((line ε 0) ∘ #) := by
   simp[Logic.DL.evalRel]
-  use (DynIndex.line ε 0)
+  use (line ε 0)
   simp[M, executionModel]
   constructor
   · constructor
@@ -81,3 +81,5 @@ example : Logic.DL.evalRel M
     · right
       right
       constructor
+
+end Logic.DL

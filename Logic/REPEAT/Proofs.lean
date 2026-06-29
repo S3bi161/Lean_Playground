@@ -1,13 +1,13 @@
 import Logic.REPEAT.Semantics
 
-namespace Logic.REPEAT
+namespace Logic.DL
 
 -- s i+1 ∈ Q → s i ∈ Q in a valid cft
 theorem line_predecessor
   (cft: CFTrace)
   (hcftValid: validCFTrace cft)
-  (hline: (DynIndex.line s (i+1)) ∈ cft.Q) :
-  ((DynIndex.line s i) ∈ cft.Q) := by
+  (hline: (line s (i+1)) ∈ cft.Q) :
+  ((line s i) ∈ cft.Q) := by
 
     have hNoJunkLines := by
       unfold validCFTrace at hcftValid
@@ -31,9 +31,9 @@ theorem line_predecessor
 theorem line_successor_origin
   (cft: CFTrace)
   (hcftValid: validCFTrace cft)
-  (hline: (DynIndex.line s (i+1) ) ∈ cft.Q):
-  (∃ v e₀ e₁, stmt cft (DynIndex.line s i) = some (Stmt.assign v e₀ e₁)) ∨
-  (∃ e, stmt cft (DynIndex.line s i) = some (Stmt.returnIf e)) := by
+  (hline: (line s (i+1) ) ∈ cft.Q):
+  (∃ v e₀ e₁, stmt cft (line s i) = some (Stmt.assign v e₀ e₁)) ∨
+  (∃ e, stmt cft (line s i) = some (Stmt.returnIf e)) := by
 
   have hNoJunkLines := by
     unfold validCFTrace at hcftValid
@@ -69,15 +69,15 @@ theorem call_tar_exists
 theorem assign_changes_exactly_one_cell
   (qe: QuasiExecution)
   (hVal: validValuation val qe)
-  (hStmt: stmt qe.cft (DynIndex.line s i) = some (Stmt.assign v e₀ e₁)):
+  (hStmt: stmt qe.cft (line s i) = some (Stmt.assign v e₀ e₁)):
 
-  val (DynIndex.line s (i+1)) v k =
-  if evalExpr qe.cft val (DynIndex.line s i) e₀ = k then
-    evalExpr qe.cft val (DynIndex.line s i) e₁
+  val (line s (i+1)) v k =
+  if evalExpr qe.cft val (line s i) e₀ = k then
+    evalExpr qe.cft val (line s i) e₁
   else
-    val (DynIndex.line s i) v k := by
+    val (line s i) v k := by
 
-    by_cases hk: evalExpr qe.cft val (DynIndex.line s i) e₀ = k
+    by_cases hk: evalExpr qe.cft val (line s i) e₀ = k
     · have hAssignHit := by
         unfold validValuation at hVal
         unfold valAssignHit at hVal
@@ -100,11 +100,20 @@ theorem rel_iff
 
   (executionModel e).rel (DL.DynIdxSym.line i) s s' ↔
   s ∈ e.quasi.cft.Q ∧
-  s' = DynIndex.line s i ∧
+  s' = line s i ∧
   s' ∈ e.quasi.cft.Q := by
 
     simp[executionModel]
-
+    intro hSInQ
+    constructor
+    · intro h
+      constructor
+      · exact h.right
+      · exact h.left
+    · intro h
+      constructor
+      · exact h.right
+      · exact h.left
 
 /- The kripke model execution model induced by an execution e is always non-branching-/
 theorem rel_non_branching_line
@@ -116,8 +125,8 @@ theorem rel_non_branching_line
   t₁ = t₂ := by
 
     simp[executionModel] at *
-    rw[h₁.right.left]
-    rw[h₂.right.left]
+    rw[h₁.right.right]
+    rw[h₂.right.right]
 
 theorem rel_non_branching_dollar
   (e: Execution)
@@ -128,8 +137,8 @@ theorem rel_non_branching_dollar
   t₁ = t₂ := by
 
     simp[executionModel] at *
-    rw[h₁.right.left]
-    rw[h₂.right.left]
+    rw[h₁.right.right]
+    rw[h₂.right.right]
 
 theorem rel_non_branching_hash
   (e: Execution)
@@ -140,8 +149,8 @@ theorem rel_non_branching_hash
   t₁ = t₂ := by
 
     simp[executionModel] at *
-    rw[h₁.right.left]
-    rw[h₂.right.left]
+    rw[h₁.right.right]
+    rw[h₂.right.right]
 
 
 theorem model_non_branching
@@ -158,4 +167,4 @@ theorem model_non_branching
     | hash => exact rel_non_branching_hash e s t₁ t₂ h₁ h₂
 
 
-end Logic.REPEAT
+end Logic.DL

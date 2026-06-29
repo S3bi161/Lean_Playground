@@ -1,9 +1,10 @@
-namespace Logic.REPEAT
+namespace Logic.DL
 
 
 --Variables
 inductive Var: Type
   | name: String → Var
+  | fn: Var                             --current process id @fn
 deriving DecidableEq, BEq
 
 
@@ -16,7 +17,6 @@ mutual
     | access: Var → Expr → Expr         --variable access `v[e]`
     | sub: Expr → Expr → Expr           --subtraction `e₀ - e₁
     | cond: Cond → Expr                 --condition
-    | fn : Expr                         --current proc id @fn
 
     inductive Cond: Type
     | le: Expr → Expr → Cond
@@ -38,7 +38,7 @@ inductive Stmt: Type
   | call: Expr → List Arg → Stmt     --`call INT_PROC_ID (args*)`
   | assign: Var → Expr → Expr → Stmt --assignment `v[e₀] = e₁`
   | returnIf: Expr → Stmt            --conditional return `if e₀ return`
-  | repeat: Stmt                     -- `repeat` statement present at the end of every procedure
+  | repeat: Stmt                     --`repeat` statement present at the end of every procedure
 deriving DecidableEq, BEq
 
 --enumerated statements, i.e. carrying line number
@@ -53,7 +53,7 @@ structure Proc where
   body: List LStmt                    --procedure body as a list of numbered stmts
 
 --Programs are just lists of procedures
-abbrev Program := Int → Option Proc   -- may be undefined
+abbrev Program := Int → Option Proc   --may be undefined
 
 
 --Syntactic sugar
@@ -91,4 +91,4 @@ def eq (e₀ e₁: Expr): Cond := conj (Cond.le e₀ e₁) (Cond.le e₁ e₀)
 end Cond
 end Expr
 
-end Logic.REPEAT
+end Logic.DL
