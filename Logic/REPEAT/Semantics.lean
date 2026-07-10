@@ -3,35 +3,37 @@ import Logic.REPEAT.Syntax
 import Logic.DL.Semantics
 import Logic.Common.DynamicIndex
 
+/- # Repeat Semantics
+
+In this file the semantics of the REPEAT_arr language are defined very closely mirroring the paper.
+
+In particular
+  • Control flow traces                       (paper definition 2.3)
+  • Quasi-Executions                          (paper definition 2.8)
+  • Variable valuation                        (paper definition 2.9)
+  • Executions                                (paper definition 2.10)
+  • Kripke Models associated with executions  (paper definition 3.5)
+are defined.
+-/
+
+
 namespace Logic.DL
 
 
-/-
-inductive DynIndex where
-  | root : DynIndex
-  | line : DynIndex → Nat → DynIndex
-  | dollar: DynIndex → DynIndex
-  | hash: DynIndex → DynIndex
-deriving DecidableEq
--/
+/- # Control Flow Traces and their states -/
+
+
 /--
 Encapsulates a control flow trace, which is a triple P = (Q, prompt, tar) where
 * `Q` is a Set of States, represented as `Set DynIndex`
 * `prompt` is the initially executed procedure
 * `tar` is the call function mapping from states to called procedures
+See also paper definition 2.3
 -/
 structure CFTrace where
   Q : Set DynIndex
   prompt : Stmt
   tar : DynIndex → Option Proc
-
-
-/--
-Quasi Execution quadruple Q = (P, seed), where P is a control flow trace and seed provides initial variable values
--/
-structure QuasiExecution where
-  cft : CFTrace
-  seed : DynIndex → Var → Int → Int
 
 
 /--
@@ -43,7 +45,7 @@ def stmt (cft: CFTrace) (idx: DynIndex) : Option Stmt :=
     | .cons s sym  => -- stmt(s i)
         match sym with
           | .line i =>
-              match cft.tar s with  --cft.tar s is the current procedure
+              match cft.tar s with   --cft.tar s is the current procedure
                 | none => none       --shouldn't occur in valid cft (i.e. s i ∈ Q → ∃ p, tar s = some p)
                 | some proc =>
                     match proc.body.find? (λ ls => ls.line == i) with
@@ -55,7 +57,7 @@ def stmt (cft: CFTrace) (idx: DynIndex) : Option Stmt :=
 
 def currentProcId (cft: CFTrace) (idx: DynIndex) : Option Int :=
   match idx with
-    | .root =>     match cft.prompt with
+    | .root     => match cft.prompt with
                     | Stmt.call (Expr.const id) _ => id   --TODO: Requires call to constant, i.e. no call arithmetic is possible => otherwise currentProcId depends on val
                     | _ => none
     | .cons s _ => match cft.tar s with
@@ -63,100 +65,106 @@ def currentProcId (cft: CFTrace) (idx: DynIndex) : Option Int :=
                     | none => none
 
 
-/- Closure properties for the set of states Q in a cft-/
+/- Closure properties for the set of states Q in a cft
+These properties correspond directly to the clauses a-g in paper definition 2.3 -/
 
---ε ∈ Q and prompt is a call
+--ε ∈ Q and prompt is a call - see also paper 2.3 a)
 def rootClosure (cft: CFTrace) : Prop :=
   ε ∈ cft.Q ∧
   ∃ expr args, cft.prompt = Stmt.call expr args
 
 
--- if s ∈ Q and stmt (s) is a call `call expr args`, then s 0 ∈ Q and tar(s) maps to a arity matching procedure
+-- if s ∈ Q and stmt (s) is a call `call expr args`, then s 0 ∈ Q and tar(s) maps to a arity matching procedure -- see also paper 2.3 b)
 def callClosure (cft: CFTrace) : Prop :=
   ∀ s expr args,
     ((s ∈ cft.Q ∧ stmt cft s = some (Stmt.call expr args)) →
 
-      line s 0 ∈ cft.Q ∧
+      s ∘ᵢ ι 0 ∈ cft.Q ∧
       ∃ proc, (cft.tar s = some proc ∧ args.length = proc.params.length))
 
--- if s i ∈ Q and stmt(s i) is an assignment `v[e₀] = e₁`, then s (i+1) ∈ Q
+
+-- if s i ∈ Q and stmt(s i) is an assignment `v[e₀] = e₁`, then s (i+1) ∈ Q - see also paper 2.3 c)
 def assignClosure (cft: CFTrace) : Prop :=
   ∀ s i v e₀ e₁,
-    (line s i ∈ cft.Q ∧
-     stmt cft (line s i) = some (Stmt.assign v e₀ e₁) →
+    (s ∘ᵢ ι i ∈ cft.Q ∧
+     stmt cft (s ∘ᵢ ι i) = some (Stmt.assign v e₀ e₁) →
 
-     line s (i + 1) ∈ cft.Q)
+      s ∘ᵢ ι (i + 1) ∈ cft.Q)
 
--- if s i ∈ Q and stmt(s i) is a returnIf `if e return ` then either s (i+1) ∈ Q or s # ∈ Q
+-- if s i ∈ Q and stmt(s i) is a returnIf `if e return ` then either s (i+1) ∈ Q or s # ∈ Q - see also paper 2.3 d)
 def returnClosure (cft: CFTrace) : Prop :=
   ∀ s i e,
-    (line s i) ∈ cft.Q ∧
-     stmt cft (line s i) = some (Stmt.returnIf e) →
+    (s ∘ᵢ ι i) ∈ cft.Q ∧
+     stmt cft (s ∘ᵢ i) = some (Stmt.returnIf e) →
 
-     (line s (i + 1) ∈ cft.Q ∨ s ∘ # ∈ cft.Q)
+     (s ∘ᵢ ι (i + 1) ∈ cft.Q ∨ s ∘ᵢ # ∈ cft.Q)
 
--- if s i ∈ Q and stmt(s i) is `repeat`, then s $ ∈ Q, s $ 0 ∈ Q and tar(s $) = tar(s)
+-- if s i ∈ Q and stmt(s i) is `repeat`, then s $ ∈ Q, s $ 0 ∈ Q and tar(s $) = tar(s) - see also paper 2.3 e)
 def repeatClosure (cft: CFTrace) : Prop :=
   ∀ s i proc,
-    (line s i ∈ cft.Q ∧
-     stmt cft (line s i) = some (Stmt.repeat) ∧
+    (s ∘ᵢ ι i ∈ cft.Q ∧
+     stmt cft (s ∘ᵢ ι i) = some (Stmt.repeat) ∧
      cft.tar s = some proc) →
 
-      (s ∘ $ ∈ cft.Q ∧
-       line (s ∘ $) 0 ∈ cft.Q ∧
-       cft.tar (s ∘ $) = some proc)
+      (s ∘ᵢ $ ∈ cft.Q ∧
+       (s ∘ᵢ $) ∘ᵢ ι 0 ∈ cft.Q ∧
+       cft.tar (s ∘ᵢ $) = some proc)
 
--- if s $ # ∈ Q, then s # ∈ Q
+-- if s $ # ∈ Q, then s # ∈ Q - see also paper 2.3 f)
 def repeatReturnClosure (cft: CFTrace) : Prop :=
   ∀ s,
-    (s ∘ $) ∘ # ∈ cft.Q → s ∘ # ∈ cft.Q
+    (s ∘ᵢ $) ∘ᵢ # ∈ cft.Q → s ∘ᵢ # ∈ cft.Q
 
--- if s i # ∈ Q, then s (i + 1) ∈ Q
+-- if s i # ∈ Q, then s (i + 1) ∈ Q - see also paper 2.3 g)
 def callReturnClosure (cft: CFTrace) : Prop :=
   ∀ s i,
-    (line s i) ∘ # ∈ cft.Q → line s (i + 1) ∈ cft.Q
+    (s ∘ᵢ ι i) ∘ᵢ # ∈ cft.Q → s ∘ᵢ ι (i + 1) ∈ cft.Q
 
 
-/- No junk properties for the set of states Q in a cft -/
+/- No junk properties for the set of states Q in a cft
+These properties specify that only states generated by the clauses a)-g) above are in the states, i.e. there are no junk states.-/
 
 -- if s 0 ∈ Q, then s = ε or stmt(s) is a call `call expr args` with matching tar arity or s = t $ with stmt(t i) = `repeat`
 def noJunkCalls (cft: CFTrace) : Prop :=
   ∀ s,
-    line s 0 ∈ cft.Q →
+    s ∘ᵢ ι 0 ∈ cft.Q →
       (s = ε ∨
        (∃ expr args proc, s ∈ cft.Q ∧ stmt cft s = some (Stmt.call expr args) ∧
         cft.tar s = some proc ∧ args.length = proc.params.length) ∨
-       (∃ t i, s = t ∘ $ ∧ line t i ∈ cft.Q ∧ stmt cft (line t i) = some (Stmt.repeat))
+       (∃ t i, s = t ∘ᵢ $ ∧ t ∘ᵢ i ∈ cft.Q ∧ stmt cft (t ∘ᵢ i) = some (Stmt.repeat))
        )
 
 -- if s i+1 ∈ Q, then s i ∈ Q and stmt(s i) is an assign `v[e₀] = e₁` or returnIf `if e return`
 def noJunkLines (cft: CFTrace) : Prop :=
   ∀ s i,
-    line s (i+1) ∈ cft.Q →
+    s ∘ᵢ ι (i+1) ∈ cft.Q →
       ((∃ v e₀ e₁,
-       line s i ∈ cft.Q ∧
-       stmt cft (line s i) = some (Stmt.assign v e₀ e₁)) ∨
+       s ∘ᵢ ι i ∈ cft.Q ∧
+       stmt cft (s ∘ᵢ ι i) = some (Stmt.assign v e₀ e₁)) ∨
       (∃ e,
-       line s i ∈ cft.Q ∧
-       stmt cft (line s i) = some (Stmt.returnIf e)))
+       s ∘ᵢ ι i ∈ cft.Q ∧
+       stmt cft (s ∘ᵢ ι i) = some (Stmt.returnIf e)))
 
 -- if s # ∈ Q, then s i ∈ Q and stmt(s i) is a returnIf `if e return` or (s $)# ∈ Q
 def noJunkReturns (cft: CFTrace) : Prop :=
   ∀ s,
-    (s ∘ #) ∈ cft.Q →
+    (s ∘ᵢ #) ∈ cft.Q →
       ((∃ i e,
-       line s i ∈ cft.Q ∧
-       stmt cft (line s i) = some (Stmt.returnIf e)) ∨
-      (s ∘ $) ∘ # ∈ cft.Q)
+       s ∘ᵢ i ∈ cft.Q ∧
+       stmt cft (s ∘ᵢ i) = some (Stmt.returnIf e)) ∨
+      (s ∘ᵢ $) ∘ᵢ # ∈ cft.Q)
 
 -- if s $ ∈ Q, then s i ∈ Q and stmt(s i) is a `repeat`
 def noJunkRepeats (cft: CFTrace) : Prop :=
   ∀ s,
-    s ∘ $ ∈ cft.Q →
+    s ∘ᵢ $ ∈ cft.Q →
       (∃ i,
-       line s i ∈ cft.Q ∧
-       stmt cft (line s i) = some (Stmt.repeat))
+       s ∘ᵢ i ∈ cft.Q ∧
+       stmt cft (s ∘ᵢ i) = some (Stmt.repeat))
 
+/- A control flow trace is valid if
+    • all states generated by the clauses a)-g) are contained in the set of states (`cftClosure`)
+    • no other states are contained in the set of states (`cftNoJunk`) -/
 
 def cftClosure (cft: CFTrace) : Prop :=
   rootClosure cft ∧
@@ -177,7 +185,18 @@ def validCFTrace (cft: CFTrace) : Prop :=
   cftClosure cft ∧ cftNoJunk cft
 
 
--- val is an arbitrary variable valuation. Validity based on a quasi execution is defined as prop mirroring the paper clauses
+
+/- # Quasi-Executions and variable valuations -/
+
+
+/--
+Quasi Execution quadruple Q = (P, seed), where P is a control flow trace and seed provides initial variable values
+-/
+structure QuasiExecution where
+  cft : CFTrace
+  seed : DynIndex → Var → Int → Int
+
+-- val is an arbitrary variable valuation. Validity of a valuation based on a quasi execution is defined as prop mirroring the paper definition 2.9
 abbrev Valuation :=
   DynIndex → Var → Int → Int
 
@@ -197,98 +216,99 @@ mutual
 end
 
 -- constrain val to be a valid val on given QuasiExecution
--- val(ε) = seed(ε)
+-- val(ε) = seed(ε) - see also paper 2.9 a)
 def valRoot (val: Valuation) (q: QuasiExecution) : Prop :=
   val ε = q.seed ε
 
--- val(s0) (x) = seed(s0) (x) if x not a param
+-- val(s0) (x) = seed(s0) (x) if x not a param - see also paper 2.9 b) case 1.
 def valCallNoPar (val: Valuation) (q: QuasiExecution) : Prop :=
   ∀ s expr args proc,
     stmt q.cft s = some (Stmt.call expr args) ∧
     q.cft.tar s = some proc →
-      ∀ x, (x ∉ proc.params → val (line s 0) x = q.seed (line s 0) x)
+      ∀ x, (x ∉ proc.params → val (s ∘ᵢ ι 0) x = q.seed (s ∘ᵢ ι 0) x)
 
--- val(s0) (x) = val(s) (y) if x is param and y is arg for x
+-- val(s0) (x) = val(s) (y) if x is param and y is arg for x - see also paper 2.9 b) case 2.
 def valCallPar (val: Valuation) (q: QuasiExecution) : Prop :=
   ∀ s expr args proc,
     stmt q.cft s = some (Stmt.call expr args) ∧
     q.cft.tar s = some proc ∧
     ∀ x y, (x, y) ∈ (List.zip proc.params args) →
-      (val (line s 0) x =
+      (val (s ∘ᵢ ι 0) x =
        val s (match y with         -- y is of type arg, which can be either ref or var
               | Arg.var v => v
               | Arg.ref v => v))
 
--- val(s i+1) (x) (k) = eval (s i, rhs) if stmt (s i) is assignment `x[e] = rhs` with eval(s i, e) = k
+-- val(s i+1) (x) (k) = eval (s i, rhs) if stmt (s i) is assignment `x[e] = rhs` with eval(s i, e) = k - see also paper 2.9 c) case 1.
 def valAssignHit (val: Valuation) (q: QuasiExecution) : Prop :=
   ∀ s i x k e rhs,
-    stmt q.cft (line s i) = some (Stmt.assign x e rhs) ∧
-    evalExpr q.cft val (line s i) e = k →
-      val (line s (i+1)) x k = evalExpr q.cft val (line s i) rhs
+    stmt q.cft (s ∘ᵢ ι i) = some (Stmt.assign x e rhs) ∧
+    evalExpr q.cft val (s ∘ᵢ i) e = k →
+      val (s ∘ᵢ ι (i+1)) x k = evalExpr q.cft val (s ∘ᵢ i) rhs
 
--- val(s i+1) (x) (k) = val(s i) (x) (k) if stmt (s i) is assignment `x[e] = rhs` with eval(s i, e) ≠ k
+-- val(s i+1) (x) (k) = val(s i) (x) (k) if stmt (s i) is assignment `x[e] = rhs` with eval(s i, e) ≠ k - see also paper 2.9 c) case 2.
 def valAssignMiss (val: Valuation) (q: QuasiExecution) : Prop :=
   ∀ s i x e rhs k,
-    stmt q.cft (line s i) = some (Stmt.assign x e rhs) ∧
-    evalExpr q.cft val (line s i) e ≠ k →
-      val (line s (i+1)) x k = val (line s i) x k
+    stmt q.cft (s ∘ᵢ ι i) = some (Stmt.assign x e rhs) ∧
+    evalExpr q.cft val (s ∘ᵢ ι i) e ≠ k →
+      val (s ∘ᵢ ι (i+1)) x k = val (s ∘ᵢ ι i) x k
 
--- val(s i+1) (x) = val(s i) (x) if stmt (s i) is assignment `y[e] = rhs` with y ≠ x
+-- val(s i+1) (x) = val(s i) (x) if stmt (s i) is assignment `y[e] = rhs` with y ≠ x - see also paper 2.9 c) case 3.
 def valAssignOther (val: Valuation) (q: QuasiExecution) : Prop :=
   ∀ s i x y e rhs,
-    stmt q.cft (line s i) = some (Stmt.assign y e rhs) ∧
+    stmt q.cft (s ∘ᵢ ι i) = some (Stmt.assign y e rhs) ∧
     y ≠ x →
-      (val (line s (i+1)) x = val (line s i) x)
+      (val (s ∘ᵢ ι (i+1)) x = val (s ∘ᵢ ι i) x)
 
--- val(s i+1) = val (s i) if stmt (s i) is returnIf `if e return` and s i+1 ∈ Q
+-- val(s i+1) = val (s i) if stmt (s i) is returnIf `if e return` and s i+1 ∈ Q - see also paper 2.9 d) case 1.
 def valNoReturn (val: Valuation) (q: QuasiExecution) : Prop :=
   ∀ s i e,
-    stmt q.cft (line s i) = some (Stmt.returnIf e) ∧
-    (line s (i+1)) ∈ q.cft.Q →
-      val (line s (i+1)) = val (line s i)
+    stmt q.cft (s ∘ᵢ ι i) = some (Stmt.returnIf e) ∧
+    (s ∘ᵢ ι (i+1)) ∈ q.cft.Q →
+      val (s ∘ᵢ ι (i+1)) = val (s ∘ᵢ ι i)
 
--- val(s #) = val (s i) if stmt (s i) is returnIf `if e return` and s i+1 ∉ Q
+-- val(s #) = val (s i) if stmt (s i) is returnIf `if e return` and s i+1 ∉ Q - see also paper 2.9 d) case 2.
 def valReturn (val: Valuation) (q: QuasiExecution) : Prop :=
   ∀ s i e,
-    stmt q.cft (line s i) = some (Stmt.returnIf e) ∧
-    (line s (i+1)) ∉ q.cft.Q →
-      val (s ∘ #) = val (line s i)
+    stmt q.cft (s ∘ᵢ ι i) = some (Stmt.returnIf e) ∧
+    (s ∘ᵢ ι (i+1)) ∉ q.cft.Q →
+      val (s ∘ᵢ #) = val (s ∘ᵢ ι i)
 
--- val (s $) = val (s i) if stmt (s i) is `repeat`
+-- val (s $) = val (s i) if stmt (s i) is `repeat` - see also paper 2.9 e) case 1.
 def valRepeat (val: Valuation) (q: QuasiExecution) : Prop :=
   ∀ s i,
-    stmt q.cft (line s i) = some (Stmt.repeat) →
-      val (s ∘ $) = val (line s i)
+    stmt q.cft (s ∘ᵢ i) = some (Stmt.repeat) →
+      val (s ∘ᵢ $) = val (s ∘ᵢ i)
 
--- val (s $ 0) = val (s $)
+-- val (s $ 0) = val (s $) - see also paper 2.9 e) case 2.
 def valRepeatEntry (val: Valuation) (q: QuasiExecution) : Prop :=
   ∀ s,
-    s ∘ $ ∈ q.cft.Q →
-      val (line (s ∘ $) 0) = val (s ∘ $)
+    s ∘ᵢ $ ∈ q.cft.Q →
+      val ((s ∘ᵢ $) ∘ᵢ ι 0) = val (s ∘ᵢ $)
 
 
--- val (s #) = val (s $ #)
+-- val (s #) = val (s $ #) - see also paper 2.9 f)
 def valRepeatReturn (val: Valuation) (q: QuasiExecution) : Prop :=
   ∀ s,
-    (s ∘ $) ∘ # ∈ q.cft.Q →
-      val (s ∘ #) = val ((s ∘ $) ∘ #)
+    (s ∘ᵢ $) ∘ᵢ # ∈ q.cft.Q →
+      val (s ∘ᵢ #) = val ((s ∘ᵢ $) ∘ᵢ #)
 
--- val (s i+1) (x) = val (s i) (x) if stmtm (s i) is `call expr args` and no args are passed by `ref`
+-- val (s i+1) (x) = val (s i) (x) if stmtm (s i) is `call expr args` and no args are passed by `ref` - see also paper 2.9 g) case 1.
 def valCallReturnByValue (val: Valuation) (q: QuasiExecution) : Prop :=
   ∀ s i expr args proc,
-    stmt q.cft (line s i) = some (Stmt.call expr args) ∧
-    q.cft.tar (line s i) = some proc ∧
+    stmt q.cft (s ∘ᵢ ι i) = some (Stmt.call expr args) ∧
+    q.cft.tar (s ∘ᵢ ι i) = some proc ∧
     ∀ x, Arg.ref x ∉ args →
-      (val (line s (i+1)) x = val (line s i) x)
+      (val (s ∘ᵢ ι (i+1)) x = val (s ∘ᵢ ι i) x)
 
--- val (s i+1) (x) = val (s i #) (y) if stmt (s i) is `call expr args` and x was passed for param x by `ref`
+-- val (s i+1) (x) = val (s i #) (y) if stmt (s i) is `call expr args` and x was passed for param x by `ref` - see also paper 2.9 g) case 2.
 def valCallReturnByRef (val: Valuation) (q: QuasiExecution) : Prop :=
   ∀ s i expr args proc,
-    stmt q.cft (line s i) = some (Stmt.call expr args) ∧
-    q.cft.tar (line s i) = some proc ∧
+    stmt q.cft (s ∘ᵢ ι i) = some (Stmt.call expr args) ∧
+    q.cft.tar (s ∘ᵢ ι i) = some proc ∧
     ∀ x y, (y, Arg.ref x) ∈ List.zip proc.params args →
-      (val (line s (i +1)) x = val ((line s i) ∘ #) y)
+      (val (s ∘ᵢ ι (i +1)) x = val ((s ∘ᵢ ι i) ∘ᵢ #) y)
 
+-- a valuation is valid if it satisfies all clauses a-g above
 def validValuation (val: Valuation) (q: QuasiExecution) : Prop :=
   valRoot val q ∧
   valCallNoPar val q ∧
@@ -305,14 +325,18 @@ def validValuation (val: Valuation) (q: QuasiExecution) : Prop :=
   valCallReturnByRef val q
 
 
--- constrain quasi executions to obtain executions
+
+/- # Executions and their Kripke Models -/
+
+
+-- constrain quasi executions to obtain executions, mirroring paper definition 2.10
 
 -- if stmt(s i) is returnIf `if e return` then s i+1 ∈ Q ↔ eval(s i, cond)
 def execReturn (val: Valuation) (q: QuasiExecution) : Prop :=
   ∀ s i e,
-    stmt q.cft (line s i) = some (Stmt.returnIf e) →
-      (line s (i+1) ∈ q.cft.Q ↔
-       evalExpr q.cft val (line s i) e = 0)
+    stmt q.cft (s ∘ᵢ ι i) = some (Stmt.returnIf e) →
+      (s ∘ᵢ ι (i+1) ∈ q.cft.Q ↔
+       evalExpr q.cft val (s ∘ᵢ ι i) e = 0)
 
 -- if stmt(s) is `call expr args`, then tar(s) = eval(s, expr)
 def execCallTarget (val: Valuation) (q: QuasiExecution) : Prop :=
@@ -326,16 +350,20 @@ def execCallFn (val: Valuation) (q: QuasiExecution) : Prop :=
   ∀ s expr args proc,
     stmt q.cft s = some (Stmt.call expr args) ∧
     q.cft.tar s = some proc →
-      proc.id = evalExpr q.cft val (line s 0) (Expr.access Var.fn (Expr.const 0))
+      proc.id = evalExpr q.cft val  (s ∘ᵢ ι 0) (Expr.access Var.fn (Expr.const 0))
 
+-- an execution is a valid execution if it satisfies all three constraints above
 def validExecution (val: Valuation) (q: QuasiExecution) : Prop :=
   execReturn val q ∧
   execCallTarget val q ∧
   execCallFn val q
 
 
-/--An Execution is a quasi execution with valuation.
-It also carries validity proofs for the CFTrace, valuation and execution-/
+/-- An Execution contains a quasi execution `quasi` and a valuation `val`.
+It also carries validity proofs for the CFTrace `hCFT`, valuation `hVal` and execution `hExec`.
+
+This slightly deviates from the paper, where the variable valuation is defined universally
+and validity of the control flow trace, valuation and the execution itself are assumed on a meta level.-/
 structure Execution where
   quasi : QuasiExecution
   val: Valuation
@@ -345,16 +373,30 @@ structure Execution where
   hExec: validExecution val quasi
 
 
+/-- An execution model is a Kripke Model `K_e` based on an execution `e`
+It utilizes the generic Kripke Model definition which is polymorphic in types for atomic relations, atomic formulas and States.
+
+These types are instantiated following the approach from paper definition 3.5:
+  • Dynamic index symbols `DL.DynIndexSym` are atomic relations
+  • Program conditions `Cond` are atomic formulas
+  • Dynamic indices `DynIndex` are states
+
+The fields val and rel define the valuation of atomic relations and atomic formulas based on execution semantics:
+  • `val (cond)` in a state s is `True` if `cond` is evaluated to 1 in program state s
+  • `rel a u ua` is an a-step from state u to state u ∘ᵢ a, if u is a program state and u ∘ᵢ a is program state
+
+Complex relations and formulas are evaluated using the generic dynamic logic semantics `DL.Logic.evalRel`, `DL.Logic.eval`
+-/
 def executionModel (e: Execution) :
-  DL.KripkeModel DL.DynIdxSym Cond DynIndex where
+  DL.KripkeModel DL.DynIndexSym Cond DynIndex where
   val := λ cond s ↦ s ∈ e.quasi.cft.Q ∧ evalCond e.quasi.cft e.val s cond = 1
   rel := λ a u ua ↦ u ∈ e.quasi.cft.Q ∧ ua ∈ e.quasi.cft.Q ∧ match a with
                                        | .line i =>
-                                          ua = line u i
+                                          ua = u ∘ᵢ i
                                         | .dollar =>
-                                          ua = u ∘ $
+                                          ua = u ∘ᵢ $
                                         | .hash =>
-                                          ua = u ∘ #
+                                          ua = u ∘ᵢ #
 
 
 end Logic.DL

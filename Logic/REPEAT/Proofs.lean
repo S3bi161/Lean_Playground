@@ -6,8 +6,8 @@ namespace Logic.DL
 theorem line_predecessor
   (cft: CFTrace)
   (hcftValid: validCFTrace cft)
-  (hline: (line s (i+1)) ∈ cft.Q) :
-  ((line s i) ∈ cft.Q) := by
+  (hline: (s ∘ᵢ ι (i+1)) ∈ cft.Q) :
+  ((s ∘ᵢ i) ∈ cft.Q) := by
 
     have hNoJunkLines := by
       unfold validCFTrace at hcftValid
@@ -31,9 +31,9 @@ theorem line_predecessor
 theorem line_successor_origin
   (cft: CFTrace)
   (hcftValid: validCFTrace cft)
-  (hline: (line s (i+1) ) ∈ cft.Q):
-  (∃ v e₀ e₁, stmt cft (line s i) = some (Stmt.assign v e₀ e₁)) ∨
-  (∃ e, stmt cft (line s i) = some (Stmt.returnIf e)) := by
+  (hline: (s ∘ᵢ ι (i+1) ) ∈ cft.Q):
+  (∃ v e₀ e₁, stmt cft (s ∘ᵢ i) = some (Stmt.assign v e₀ e₁)) ∨
+  (∃ e, stmt cft (s ∘ᵢ i) = some (Stmt.returnIf e)) := by
 
   have hNoJunkLines := by
     unfold validCFTrace at hcftValid
@@ -69,15 +69,15 @@ theorem call_tar_exists
 theorem assign_changes_exactly_one_cell
   (qe: QuasiExecution)
   (hVal: validValuation val qe)
-  (hStmt: stmt qe.cft (line s i) = some (Stmt.assign v e₀ e₁)):
+  (hStmt: stmt qe.cft (s ∘ᵢ ι i) = some (Stmt.assign v e₀ e₁)):
 
-  val (line s (i+1)) v k =
-  if evalExpr qe.cft val (line s i) e₀ = k then
-    evalExpr qe.cft val (line s i) e₁
+  val (s ∘ᵢ ι (i+1)) v k =
+  if evalExpr qe.cft val (s ∘ᵢ i) e₀ = k then
+    evalExpr qe.cft val (s ∘ᵢ i) e₁
   else
-    val (line s i) v k := by
+    val (s ∘ᵢ i) v k := by
 
-    by_cases hk: evalExpr qe.cft val (line s i) e₀ = k
+    by_cases hk: evalExpr qe.cft val (s ∘ᵢ i) e₀ = k
     · have hAssignHit := by
         unfold validValuation at hVal
         unfold valAssignHit at hVal
@@ -98,9 +98,9 @@ theorem rel_iff
   (e: Execution)
   (s s': DynIndex):
 
-  (executionModel e).rel (DL.DynIdxSym.line i) s s' ↔
+  (executionModel e).rel (DL.DynIndexSym.line i) s s' ↔
   s ∈ e.quasi.cft.Q ∧
-  s' = line s i ∧
+  s' = s ∘ᵢ i ∧
   s' ∈ e.quasi.cft.Q := by
 
     simp[executionModel]
@@ -119,8 +119,8 @@ theorem rel_iff
 theorem rel_non_branching_line
   (e: Execution)
   (s t₁ t₂: DynIndex)
-  (h₁: (executionModel e).rel (DL.DynIdxSym.line i) s t₁)
-  (h₂: (executionModel e).rel (DL.DynIdxSym.line i) s t₂):
+  (h₁: (executionModel e).rel (DL.DynIndexSym.line i) s t₁)
+  (h₂: (executionModel e).rel (DL.DynIndexSym.line i) s t₂):
 
   t₁ = t₂ := by
 
@@ -131,8 +131,8 @@ theorem rel_non_branching_line
 theorem rel_non_branching_dollar
   (e: Execution)
   (s t₁ t₂: DynIndex)
-  (h₁: (executionModel e).rel (DL.DynIdxSym.dollar) s t₁)
-  (h₂: (executionModel e).rel (DL.DynIdxSym.dollar) s t₂):
+  (h₁: (executionModel e).rel $ s t₁)
+  (h₂: (executionModel e).rel $ s t₂):
 
   t₁ = t₂ := by
 
@@ -143,14 +143,15 @@ theorem rel_non_branching_dollar
 theorem rel_non_branching_hash
   (e: Execution)
   (s t₁ t₂: DynIndex)
-  (h₁: (executionModel e).rel (DL.DynIdxSym.hash) s t₁)
-  (h₂: (executionModel e).rel (DL.DynIdxSym.hash) s t₂):
+  (h₁: (executionModel e).rel # s t₁)
+  (h₂: (executionModel e).rel # s t₂):
 
   t₁ = t₂ := by
 
     simp[executionModel] at *
     rw[h₁.right.right]
     rw[h₂.right.right]
+
 
 
 theorem model_non_branching

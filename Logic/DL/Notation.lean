@@ -14,16 +14,16 @@ namespace Logic.DL
 -/
 
 --formulas
-abbrev DAForm := DLForm DynIdxSym Cond
+abbrev DAForm := DLForm DynIndexSym Cond
 -- relevant coercions
-instance: Coe DynIdxSym (Relation DynIdxSym) where
+instance: Coe DynIndexSym (Relation DynIndexSym) where
   coe α := Relation.relAtom α
 
-instance: OfNat DynIdxSym n where
-  ofNat := DynIdxSym.line n
+instance: OfNat DynIndexSym n where
+  ofNat := DynIndexSym.line n
 
-instance: OfNat (Relation DynIdxSym) n where
-  ofNat := Relation.relAtom (DynIdxSym.line n)
+instance: OfNat (Relation DynIndexSym) n where
+  ofNat := Relation.relAtom (DynIndexSym.line n)
 
 instance: Coe String Expr where
   coe s := Expr.var (Var.name s)
@@ -39,32 +39,29 @@ notation "⊥" => DLForm.falsum
 
 
 --relation operators
-notation:100 α "*" => Relation.iter (α: Relation DynIdxSym)
-notation:80 α:81 β:80 => Relation.comp (α: Relation DynIdxSym) (β: Relation DynIdxSym)
-notation:70 α:71 " ∪ " β:70 => Relation.alt (α: Relation DynIdxSym) (β: Relation DynIdxSym)
+notation:100 α "*" => Relation.iter (α: Relation DynIndexSym)
+notation:80 α:81 "∘ᵣ" β:80 => Relation.comp (α: Relation DynIndexSym) (β: Relation DynIndexSym)
+notation:70 α:71 " ∪ " β:70 => Relation.alt (α: Relation DynIndexSym) (β: Relation DynIndexSym)
 
 
-
-
-notation:90 "⟨" α "⟩" φ => DLForm.diamond (α: Relation DynIdxSym) (φ: DAForm)
-notation:90 "[" α "]" φ => box (α: Relation DynIdxSym) (φ: DAForm)
-notation:85 "∼" φ:85 => not (φ: DAForm)
-notation:70 φ:71 " ⋏ " ψ:70 => conj (φ: DAForm) (ψ: DAForm)
-notation:60 φ:61 " ⋎ " ψ:60 => disj (φ: DAForm) (ψ: DAForm)
-notation:50 φ:51 " → " ψ:50 => DLForm.imp (φ: DAForm) (ψ: DAForm)
+notation:90 "⟨" α "⟩ₗ" φ => DLForm.diamond (α: Relation DynIndexSym) (φ: DAForm)
+notation:90 "[" α "]ₗ" φ => box (α: Relation DynIndexSym) (φ: DAForm)
+notation:85 "¬ₗ" φ:85 => not (φ: DAForm)
+notation:70 φ:71 " ∧ₗ " ψ:70 => conj (φ: DAForm) (ψ: DAForm)
+notation:60 φ:61 " ∨ₗ " ψ:60 => disj (φ: DAForm) (ψ: DAForm)
+notation:50 φ:51 " →ₗ " ψ:50 => DLForm.imp (φ: DAForm) (ψ: DAForm)
 
 
 infix:110 "=ₑ" => Expr.Cond.eq
-infix:110 "<ₑ" => Cond.le
+infix:110 "≤ₑ" => Cond.le
 
-#check 0 1 2 3 #
-#check [(0 1 * ∪ 1)*]
+#check ε ∘ᵢ 0 ∘ᵢ 1 ∘ᵢ 2 ∘ᵢ 3 ∘ᵢ #
+#check [(0 ∘ᵣ 1* ∪ 1)*]ₗ "p" =ₑ "q"
 #check 0 ∪ 1 * ∪ #
-#check ⟨0 $⟩ ("p" =ₑ "q")
-#check ∼⟨0 #⟩ (∼ "p" <ₑ "q") ⋎ "q" <ₑ "p"
+#check ⟨0 ∘ᵣ $⟩ₗ ("p" =ₑ "q")
+#check ¬ₗ ⟨0 ∘ᵣ #⟩ₗ (¬ₗ "p" ≤ₑ "q") ∨ₗ "q" ≤ₑ "p"
 #check ⊥
 #check #
 #check ∅
-
 
 end Logic.DL
