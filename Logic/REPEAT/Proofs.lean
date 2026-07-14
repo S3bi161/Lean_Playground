@@ -13,7 +13,7 @@ theorem line_predecessor
       unfold validCFTrace at hcftValid
       unfold cftNoJunk at hcftValid
       unfold noJunkLines at hcftValid
-      exact hcftValid.right.right.left s i hline
+      exact hcftValid.right.left.right.left s i hline
 
     cases hNoJunkLines with
     | inl hAssign =>
@@ -39,7 +39,7 @@ theorem line_successor_origin
     unfold validCFTrace at hcftValid
     unfold cftNoJunk at hcftValid
     unfold noJunkLines at hcftValid
-    exact hcftValid.right.right.left s i hline
+    exact hcftValid.right.left.right.left s i hline
 
   cases hNoJunkLines with
   | inl hAssign =>

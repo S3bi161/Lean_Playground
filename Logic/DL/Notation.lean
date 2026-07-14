@@ -8,9 +8,9 @@ namespace Logic.DL
 # Remarks
 - This approach is only applicable when using the monomorphic DAForm, which fixes DynamicIndices and Cond as DLForm Types.
 - In order to avoid confusion with Leans inbuilt notation for Props, the following logical connectives have to be chosen slightly different than usual textbook:
-  • `⋎` for DL "or"
-  • `⋏` for DL "and"
-  • `∼` for DL "not"
+  • `∨ₗ` for DL "or"
+  • `∧ₗ` for DL "and"
+  • `¬ₗ` for DL "not"
 -/
 
 --formulas
@@ -40,7 +40,7 @@ notation "⊥" => DLForm.falsum
 
 --relation operators
 notation:100 α "*" => Relation.iter (α: Relation DynIndexSym)
-notation:80 α:81 "∘ᵣ" β:80 => Relation.comp (α: Relation DynIndexSym) (β: Relation DynIndexSym)
+notation:80 α:81 "∘ₗ" β:80 => Relation.comp (α: Relation DynIndexSym) (β: Relation DynIndexSym)
 notation:70 α:71 " ∪ " β:70 => Relation.alt (α: Relation DynIndexSym) (β: Relation DynIndexSym)
 
 
@@ -56,10 +56,10 @@ infix:110 "=ₑ" => Expr.Cond.eq
 infix:110 "≤ₑ" => Cond.le
 
 #check ε ∘ᵢ 0 ∘ᵢ 1 ∘ᵢ 2 ∘ᵢ 3 ∘ᵢ #
-#check [(0 ∘ᵣ 1* ∪ 1)*]ₗ "p" =ₑ "q"
+#check [(0 ∘ₗ 1* ∪ 1)*]ₗ "p" =ₑ "q"
 #check 0 ∪ 1 * ∪ #
-#check ⟨0 ∘ᵣ $⟩ₗ ("p" =ₑ "q")
-#check ¬ₗ ⟨0 ∘ᵣ #⟩ₗ (¬ₗ "p" ≤ₑ "q") ∨ₗ "q" ≤ₑ "p"
+#check ⟨0 ∘ₗ $⟩ₗ ("p" =ₑ "q")
+#check ¬ₗ ⟨0 ∘ₗ #⟩ₗ (¬ₗ "p" ≤ₑ "q") ∨ₗ "q" ≤ₑ "p"
 #check ⊥
 #check #
 #check ∅

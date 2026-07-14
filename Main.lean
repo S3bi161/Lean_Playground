@@ -1,5 +1,3 @@
-import Logic.Prop.Syntax
-import Logic.Prop.Semantics
 import Logic.DL.Syntax
 import Logic.DL.Semantics
 import Logic.DL.Notation
@@ -82,7 +80,7 @@ end GenericKripke
 namespace Logic.DL
 
 /- # Execution Model -/
-def testQ : Set DynIndex := {ε, ε ∘ᵢ ι 0, (ε ∘ᵢ ι 0) ∘ᵢ #}
+def testQ := [ε, ε ∘ᵢ ι 0, (ε ∘ᵢ ι 0) ∘ᵢ #]
 def dummyProc : Proc := {
   id := 0,
   params := [],
@@ -117,13 +115,11 @@ example : M.rel (0) ε (ε ∘ᵢ ι 0) := by
   simp[M, executionModel]
   constructor
   · constructor
-    rfl
   · right
     left
-    rfl
 
 example : Logic.DL.evalRel M
-                 (0 ∘ᵣ #)
+                 (0 ∘ₗ #)
                   ε
                   ((ε ∘ᵢ ι 0) ∘ᵢ #) := by
   simp[Logic.DL.evalRel]
@@ -132,14 +128,11 @@ example : Logic.DL.evalRel M
   constructor
   · constructor
     · constructor
-      rfl
     · right
       left
-      rfl
   · constructor
     · right
       left
-      rfl
     · right
       right
       constructor
@@ -155,14 +148,11 @@ example : Logic.DL.eval M φ ε := by
   · constructor
     constructor
     · left
-      rfl
     · right
       left
-      rfl
   · constructor
     · right
       left
-      rfl
     · unfold evalCond
       rfl
 

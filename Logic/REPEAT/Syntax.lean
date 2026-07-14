@@ -4,7 +4,6 @@ namespace Logic.DL
 --Variables
 inductive Var: Type
   | name: String → Var
-  | fn: Var                             --current process id @fn
 deriving DecidableEq, BEq
 
 
