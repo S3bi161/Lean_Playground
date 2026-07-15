@@ -67,7 +67,7 @@ theorem call_tar_exists
 
 --after an assign, exactly one array cell is changed
 theorem assign_changes_exactly_one_cell
-  (qe: QuasiExecution)
+  (qe: LiberalExecution)
   (hVal: validValuation val qe)
   (hStmt: stmt qe.cft (s ∘ᵢ ι i) = some (Stmt.assign v e₀ e₁)):
 
@@ -99,9 +99,9 @@ theorem rel_iff
   (s s': DynIndex):
 
   (executionModel e).rel (DL.DynIndexSym.line i) s s' ↔
-  s ∈ e.quasi.cft.Q ∧
+  s ∈ e.liberal.cft.Q ∧
   s' = s ∘ᵢ i ∧
-  s' ∈ e.quasi.cft.Q := by
+  s' ∈ e.liberal.cft.Q := by
 
     simp[executionModel]
     intro hSInQ

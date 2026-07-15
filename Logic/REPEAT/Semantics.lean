@@ -9,7 +9,7 @@ In this file the semantics of the REPEAT_arr language are defined very closely m
 
 In particular
   • Control flow traces
-  • Quasi-Executions
+  • Liberal Executions
   • Variable valuation
   • Executions
   • Kripke Models associated with executions
@@ -53,15 +53,6 @@ def stmt (cft: CFTrace) (idx: DynIndex) : Option Stmt :=
 
           | _ => none
 
-
-def currentProcId (cft: CFTrace) (idx: DynIndex) : Option Int :=
-  match idx with
-    | .root     => match cft.prompt with
-                    | Stmt.call (Expr.const id) _ => id   --TODO: Requires call to constant, i.e. no call arithmetic is possible => otherwise currentProcId depends on val
-                    | _ => none
-    | .cons s _ => match cft.tar s with
-                    | some proc => proc.id
-                    | none => none
 
 /-- successor property of two states s s' -/
 def nextState (cft: CFTrace) (s s': DynIndex) : Prop :=
@@ -203,17 +194,17 @@ def validCFTrace (cft: CFTrace) : Prop :=
 
 
 
-/- # Quasi-Executions and variable valuations -/
+/- # Liberal Executions and variable valuations -/
 
 
 /--
-Quasi Execution quadruple Q = (P, seed), where P is a control flow trace and seed provides initial variable values
+Liberal Execution quadruple Q = (P, seed), where P is a control flow trace and seed provides initial variable values
 -/
-structure QuasiExecution where
+structure LiberalExecution where
   cft : CFTrace
   seed : DynIndex → Var → Int → Int
 
--- val is an arbitrary variable valuation. Validity of a valuation based on a quasi execution is defined as prop mirroring the paper definition
+-- val is an arbitrary variable valuation. Validity of a valuation based on a liberal execution is defined as prop mirroring the paper definition
 abbrev Valuation :=
   DynIndex → Var → Int → Int
 
@@ -232,20 +223,20 @@ mutual
         0
 end
 
--- constrain val to be a valid val on given QuasiExecution
+-- constrain val to be a valid val on given liberalExecution
 -- val(ε) = seed(ε)
-def valRoot (val: Valuation) (q: QuasiExecution) : Prop :=
+def valRoot (val: Valuation) (q: LiberalExecution) : Prop :=
   val ε = q.seed ε
 
 -- val(s0) (x) = seed(s0) (x) if x not a param
-def valCallNoPar (val: Valuation) (q: QuasiExecution) : Prop :=
+def valCallNoPar (val: Valuation) (q: LiberalExecution) : Prop :=
   ∀ s expr args proc,
     stmt q.cft s = some (Stmt.call expr args) ∧
     q.cft.tar s = some proc →
       ∀ x, (x ∉ proc.params → val (s ∘ᵢ ι 0) x = q.seed (s ∘ᵢ ι 0) x)
 
 -- val(s0) (x) = val(s) (y) if x is param and y is arg for x
-def valCallPar (val: Valuation) (q: QuasiExecution) : Prop :=
+def valCallPar (val: Valuation) (q: LiberalExecution) : Prop :=
   ∀ s expr args proc,
     stmt q.cft s = some (Stmt.call expr args) ∧
     q.cft.tar s = some proc ∧
@@ -256,61 +247,61 @@ def valCallPar (val: Valuation) (q: QuasiExecution) : Prop :=
               | Arg.ref v => v))
 
 -- val(s i+1) (x) (k) = eval (s i, rhs) if stmt (s i) is assignment `x[e] = rhs` with eval(s i, e) = k
-def valAssignHit (val: Valuation) (q: QuasiExecution) : Prop :=
+def valAssignHit (val: Valuation) (q: LiberalExecution) : Prop :=
   ∀ s i x k e rhs,
     stmt q.cft (s ∘ᵢ ι i) = some (Stmt.assign x e rhs) ∧
     evalExpr q.cft val (s ∘ᵢ i) e = k →
       val (s ∘ᵢ ι (i+1)) x k = evalExpr q.cft val (s ∘ᵢ i) rhs
 
 -- val(s i+1) (x) (k) = val(s i) (x) (k) if stmt (s i) is assignment `x[e] = rhs` with eval(s i, e) ≠ k
-def valAssignMiss (val: Valuation) (q: QuasiExecution) : Prop :=
+def valAssignMiss (val: Valuation) (q: LiberalExecution) : Prop :=
   ∀ s i x e rhs k,
     stmt q.cft (s ∘ᵢ ι i) = some (Stmt.assign x e rhs) ∧
     evalExpr q.cft val (s ∘ᵢ ι i) e ≠ k →
       val (s ∘ᵢ ι (i+1)) x k = val (s ∘ᵢ ι i) x k
 
 -- val(s i+1) (x) = val(s i) (x) if stmt (s i) is assignment `y[e] = rhs` with y ≠ x
-def valAssignOther (val: Valuation) (q: QuasiExecution) : Prop :=
+def valAssignOther (val: Valuation) (q: LiberalExecution) : Prop :=
   ∀ s i x y e rhs,
     stmt q.cft (s ∘ᵢ ι i) = some (Stmt.assign y e rhs) ∧
     y ≠ x →
       (val (s ∘ᵢ ι (i+1)) x = val (s ∘ᵢ ι i) x)
 
 -- val(s i+1) = val (s i) if stmt (s i) is returnIf `if e return` and s i+1 ∈ Q
-def valNoReturn (val: Valuation) (q: QuasiExecution) : Prop :=
+def valNoReturn (val: Valuation) (q: LiberalExecution) : Prop :=
   ∀ s i e,
     stmt q.cft (s ∘ᵢ ι i) = some (Stmt.returnIf e) ∧
     (s ∘ᵢ ι (i+1)) ∈ q.cft.Q →
       val (s ∘ᵢ ι (i+1)) = val (s ∘ᵢ ι i)
 
 -- val(s #) = val (s i) if stmt (s i) is returnIf `if e return` and s i+1 ∉ Q
-def valReturn (val: Valuation) (q: QuasiExecution) : Prop :=
+def valReturn (val: Valuation) (q: LiberalExecution) : Prop :=
   ∀ s i e,
     stmt q.cft (s ∘ᵢ ι i) = some (Stmt.returnIf e) ∧
     (s ∘ᵢ ι (i+1)) ∉ q.cft.Q →
       val (s ∘ᵢ #) = val (s ∘ᵢ ι i)
 
 -- val (s $) = val (s i) if stmt (s i) is `repeat`
-def valRepeat (val: Valuation) (q: QuasiExecution) : Prop :=
+def valRepeat (val: Valuation) (q: LiberalExecution) : Prop :=
   ∀ s i,
     stmt q.cft (s ∘ᵢ i) = some (Stmt.repeat) →
       val (s ∘ᵢ $) = val (s ∘ᵢ i)
 
 -- val (s $ 0) = val (s $)
-def valRepeatEntry (val: Valuation) (q: QuasiExecution) : Prop :=
+def valRepeatEntry (val: Valuation) (q: LiberalExecution) : Prop :=
   ∀ s,
     s ∘ᵢ $ ∈ q.cft.Q →
       val ((s ∘ᵢ $) ∘ᵢ ι 0) = val (s ∘ᵢ $)
 
 
 -- val (s #) = val (s $ #)
-def valRepeatReturn (val: Valuation) (q: QuasiExecution) : Prop :=
+def valRepeatReturn (val: Valuation) (q: LiberalExecution) : Prop :=
   ∀ s,
     (s ∘ᵢ $) ∘ᵢ # ∈ q.cft.Q →
       val (s ∘ᵢ #) = val ((s ∘ᵢ $) ∘ᵢ #)
 
 -- val (s i+1) (x) = val (s i) (x) if stmtm (s i) is `call expr args` and no args are passed by `ref`
-def valCallReturnByValue (val: Valuation) (q: QuasiExecution) : Prop :=
+def valCallReturnByValue (val: Valuation) (q: LiberalExecution) : Prop :=
   ∀ s i expr args proc,
     stmt q.cft (s ∘ᵢ ι i) = some (Stmt.call expr args) ∧
     q.cft.tar (s ∘ᵢ ι i) = some proc ∧
@@ -318,7 +309,7 @@ def valCallReturnByValue (val: Valuation) (q: QuasiExecution) : Prop :=
       (val (s ∘ᵢ ι (i+1)) x = val (s ∘ᵢ ι i) x)
 
 -- val (s i+1) (x) = val (s i #) (y) if stmt (s i) is `call expr args` and x was passed for param x by `ref`
-def valCallReturnByRef (val: Valuation) (q: QuasiExecution) : Prop :=
+def valCallReturnByRef (val: Valuation) (q: LiberalExecution) : Prop :=
   ∀ s i expr args proc,
     stmt q.cft (s ∘ᵢ ι i) = some (Stmt.call expr args) ∧
     q.cft.tar (s ∘ᵢ ι i) = some proc ∧
@@ -326,7 +317,7 @@ def valCallReturnByRef (val: Valuation) (q: QuasiExecution) : Prop :=
       (val (s ∘ᵢ ι (i +1)) x = val ((s ∘ᵢ ι i) ∘ᵢ #) y)
 
 -- a valuation is valid if it satisfies all clauses above
-def validValuation (val: Valuation) (q: QuasiExecution) : Prop :=
+def validValuation (val: Valuation) (q: LiberalExecution) : Prop :=
   valRoot val q ∧
   valCallNoPar val q ∧
   valCallPar val q ∧
@@ -346,17 +337,17 @@ def validValuation (val: Valuation) (q: QuasiExecution) : Prop :=
 /- # Executions and their Kripke Models -/
 
 
--- constrain quasi executions to obtain executions, mirroring the paper definition of executions
+-- constrain liberal executions to obtain executions, mirroring the paper definition of executions
 
 -- if stmt(s i) is returnIf `if e return` then s i+1 ∈ Q ↔ eval(s i, cond)
-def execReturn (val: Valuation) (q: QuasiExecution) : Prop :=
+def execReturn (val: Valuation) (q: LiberalExecution) : Prop :=
   ∀ s i e,
     stmt q.cft (s ∘ᵢ ι i) = some (Stmt.returnIf e) →
       (s ∘ᵢ ι (i+1) ∈ q.cft.Q ↔
        evalExpr q.cft val (s ∘ᵢ ι i) e = 0)
 
 -- if stmt(s) is `call expr args`, then tar(s) = eval(s, expr)
-def execCallTarget (val: Valuation) (q: QuasiExecution) : Prop :=
+def execCallTarget (val: Valuation) (q: LiberalExecution) : Prop :=
   ∀ s expr args proc,
     stmt q.cft s = some (Stmt.call expr args) ∧
     q.cft.tar s = some proc →
@@ -364,23 +355,23 @@ def execCallTarget (val: Valuation) (q: QuasiExecution) : Prop :=
 
 
 -- an execution is a valid execution if it satisfies all three constraints above
-def validExecution (val: Valuation) (q: QuasiExecution) : Prop :=
+def validExecution (val: Valuation) (q: LiberalExecution) : Prop :=
   execReturn val q ∧
   execCallTarget val q
 
 
-/-- An Execution contains a quasi execution `quasi` and a valuation `val`.
+/-- An Execution contains a liberal execution `liberal` and a valuation `val`.
 It also carries validity proofs for the CFTrace `hCFT`, valuation `hVal` and execution `hExec`.
 
 This slightly deviates from the paper, where the variable valuation is defined universally
 and validity of the control flow trace, valuation and the execution itself are assumed on a meta level.-/
 structure Execution where
-  quasi : QuasiExecution
+  liberal : LiberalExecution
   val: Valuation
 
-  hCFT: validCFTrace quasi.cft
-  hVal: validValuation val quasi
-  hExec: validExecution val quasi
+  hCFT: validCFTrace liberal.cft
+  hVal: validValuation val liberal
+  hExec: validExecution val liberal
 
 
 /-- An execution model is a Kripke Model `K_e` based on an execution `e`
@@ -399,8 +390,8 @@ Complex relations and formulas are evaluated using the generic dynamic logic sem
 -/
 def executionModel (e: Execution) :
   DL.KripkeModel DL.DynIndexSym Cond DynIndex where
-  val := λ cond s ↦ s ∈ e.quasi.cft.Q ∧ evalCond e.quasi.cft e.val s cond = 1
-  rel := λ a u ua ↦ u ∈ e.quasi.cft.Q ∧ ua ∈ e.quasi.cft.Q ∧ match a with
+  val := λ cond s ↦ s ∈ e.liberal.cft.Q ∧ evalCond e.liberal.cft e.val s cond = 1
+  rel := λ a u ua ↦ u ∈ e.liberal.cft.Q ∧ ua ∈ e.liberal.cft.Q ∧ match a with
                                        | .line i =>
                                           ua = u ∘ᵢ i
                                         | .dollar =>

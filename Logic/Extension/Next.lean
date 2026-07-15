@@ -26,7 +26,7 @@ def executionModelNext (e: Execution) :
     rel := λ a s₁ s₂ ↦
       match a with
         | .dyn i => (executionModel e).rel i s₁ s₂
-        | .next => nextState e.quasi.cft s₁ s₂
+        | .next => nextState e.liberal.cft s₁ s₂
 
 -- `X φ = ⟨next⟩ φ`
 def X (φ: DLForm RelAtomTemporal Cond): DLForm RelAtomTemporal Cond :=

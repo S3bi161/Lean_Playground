@@ -1,6 +1,6 @@
 # Mechanization of Dependent Assertion Logic in Lean
 
-This is a formalization of *Dependent Assertion Logic* (DA) in Lean, heavily based on "A Program Semantics with Dynamic State Indices", 2026, unpublished; this paper is referenced in the following and in comments as "paper". 
+This is a formalization of *Dependent Assertion Logic* (DA) in Lean, heavily based on "A Program Semantics with Dynamic State Indices" [1]; this paper is referenced in the following and in comments as "paper". 
 I sincerely recommend reading it to understand in particular the formalization approach of *REPEAT_arr* and the connection to dynamic logic.
 Relevant definitions are also referenced in the code when necessary.
 
@@ -87,9 +87,13 @@ You can follow along proof states in the infoview when placing the cursor in the
 
 Arguably the most interesting proofs so far are `assign_changes_exactly_one_cell`, which shows that after any assignment, exactly one array cell changed; another interesting one is `model_non_branching`, which varifies that any model induced by an execution is non branching.
 
-Further work on proofs include finishing the ones marked with `sorry` and various others - one idea for a future proof being that the axiomatic characterization of variable valuations determine a universal valuation exactly.
+Further work on proofs include finishing the ones marked with `sorry`, some basic theorems about the representations and various others - one idea for a future proof being that the axiomatic characterization of variable valuations determine a universal valuation exactly.
 
 ## Extension
-In TODO: reference? DA logic was extended to model LTL. This is done by especially a notion of next, which in this implementation is obtained for free reusing the `nextState` Prop in **REPEAT/Semantics.lean**, which relates successor states. Utilizing this, the LTL operators F (eventually) and G (always) are also obtained easily. To completely model LTL, also the Until operator has to be modelled, which is currently work in progress.
+In [2] 5.4, DA logic was extended to model LTL. This is done by especially introducing three new atomic relations to model the LTL next operator. In this implementation, the next operator is obtained for free reusing the `nextState` Prop in **REPEAT/Semantics.lean**, which relates successor states. Utilizing this, the LTL operators F (eventually) and G (always) are also obtained easily. To completely model LTL, also the Until operator has to be modelled, which is future work.
 
 ### References
+1. *A Program Semantics with Dynamic State Indices*. Anonymous author, 2026. Unpublished
+2. [*Dependent Assertions for Specification and Control Flow Verification*](https://doi.org/10.26083/tuda-8042). PhD thesis. Lukas Grätz, 2025. 
+3. [*lean4-pdl*](https://github.com/m4lvin/lean4-pdl). GitHub repository.
+4. [*lean-hoare*](https://github.com/goens/lean-hoare). GitHub repository.

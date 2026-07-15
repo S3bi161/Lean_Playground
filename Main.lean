@@ -99,7 +99,7 @@ def testVal : DynIndex → Var → Int → Int :=
   λ _ _ _ ↦ 0
 
 def testExec : Execution := {
-  quasi := {
+  liberal := {
     cft := testCFT,
     seed := testSeed
   },
