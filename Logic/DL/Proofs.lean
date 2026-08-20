@@ -44,15 +44,48 @@ theorem wild_imp_ato (M: KripkeModel RelType AtomType State):
   simp[evalRel] at *
   exact h
 
+theorem relBFS_correct
+  {RelType AtomType State: Type}
+  [DecidableEq RelType] [DecidableEq State]
+  (M: KripkeModel RelType AtomType State)
+  (relDecidableH: ∀ rel s s', Decidable (M.rel rel s s'))
+  (states: List State) (rels: List RelType)
+  (α: Relation RelType)
+  (hα: ∀ s s', evalRelB M relDecidableH states rels α s s' = Bool.true ↔
+        evalRel M α s s')
+  (allStatesPassedH: ∀ s: State, s ∈ states)
+  (s₀ s₁: State) :
+    relBFS M relDecidableH states rels α states.length [s₀] [s₀] s₁ = Bool.true ↔
+      Relation.ReflTransGen (evalRel M α) s₀ s₁ := by
+        sorry
+
 theorem evalRelB_correct
   {RelType AtomType State: Type}
   [DecidableEq RelType] [DecidableEq State]
   (M: KripkeModel RelType AtomType State)
   (relDecidableH: ∀ rel s s', Decidable (M.rel rel s s'))
   (states: List State) (rels: List RelType)
+  (allStatesPassedH: ∀ s: State, s ∈ states)
+  (allRelsPassedH: ∀ {a s s'}, M.rel a s s' → a ∈ rels)
   (α: Relation RelType) (s₀ s₁: State):
-    evalRelB M relDecidableH states rels α s₀ s₁ = Bool.true ↔ evalRel M α s₀ s₁ :=
-    sorry
+    evalRelB M relDecidableH states rels α s₀ s₁ = Bool.true ↔ evalRel M α s₀ s₁ := by
+      induction α generalizing s₀ s₁ with
+      | relAtom a           =>  simp[evalRelB, evalRel]
+      | emptyset            =>  simp[evalRelB, evalRel]
+      | wild                =>  simp[evalRelB, evalRel]
+                                constructor
+                                · rintro ⟨x, h⟩
+                                  exists x
+                                  exact h.2
+                                · rintro ⟨x, h⟩
+                                  exists x
+                                  exact And.intro (@allRelsPassedH x s₀ s₁ h) (h)
+      | alt α β ihα ihβ     =>  simp_all[evalRel, evalRelB]
+      | comp α β ihα ihβ    =>  simp_all[evalRel, evalRelB]
+      | iter α ihα          =>  simp_all[evalRel, evalRelB]
+                                exact relBFS_correct M relDecidableH states rels α ihα allStatesPassedH s₀ s₁
+
+
 
 
 /- Correctness proof for evalB under assumptions:
@@ -67,7 +100,8 @@ theorem evalB_correct
   (valDecidableH: ∀ atom s, Decidable (M.val atom s))
   (states: List State) (rels: List RelType)
   (φ: DLForm RelType AtomType)
-  (allStatesPassedH: ∀ α s s', evalRel M α s s' → s' ∈ states):
+  (allStatesPassedH: ∀ s: State, s ∈ states)
+  (allRelsPassedH: ∀ {a s s'}, M.rel a s s' → a ∈ rels):
     ∀ s, evalB M relDecidableH valDecidableH states rels φ s = Bool.true ↔ eval M φ s :=
     by
       induction φ with
@@ -103,7 +137,7 @@ theorem evalB_correct
                                       | intro sInStates evalBSemH
 
                                     have evalαH: evalRel M α s s' :=
-                                      ((evalRelB_correct M relDecidableH states rels α s s').mp evalBSemH.left)
+                                      ((evalRelB_correct M relDecidableH states rels allStatesPassedH allRelsPassedH α s s').mp evalBSemH.left)
                                     have evalφH: eval M φ s' :=
                                       ((ihφ s').mp evalBSemH.right)
 
@@ -117,10 +151,10 @@ theorem evalB_correct
                                   | intro s' inner =>
                                     cases inner with
                                       | intro evalαH evalφH
-                                    have s'InStatesH: s' ∈ states := allStatesPassedH α s s' evalαH --correctness relies on passing all states to evalB, i.e. that s' ∈ states
+                                    have s'InStatesH: s' ∈ states := allStatesPassedH s' --correctness relies on passing all states to evalB, i.e. that s' ∈ states
 
                                     have evalαBH: evalRelB M relDecidableH states rels α s s' :=
-                                      ((evalRelB_correct M relDecidableH states rels α s s').mpr evalαH)
+                                      ((evalRelB_correct M relDecidableH states rels allStatesPassedH allRelsPassedH α s s').mpr evalαH)
 
                                     have evalφBH: evalB M relDecidableH valDecidableH states rels φ s' :=
                                       (ihφ s').mpr evalφH

@@ -24,9 +24,58 @@ def eval (M: KripkeModel RelType AtomType State) :
   | DLForm.imp φ ψ, s => eval M φ s → eval M ψ s
   | DLForm.diamond α φ, s => ∃ s', evalRel M α s s' ∧ eval M φ s'
 
+@[simp] theorem eval_conj_iff
+  (M: KripkeModel RelType AtomType State)
+  (φ ψ: DLForm RelType AtomType)
+  (s: State):
+    eval M (conj φ ψ) s ↔ (eval M φ s ∧ eval M ψ s) := by
+      simp[conj, not, eval]
+
+@[simp] theorem eval_disj_iff
+  (M: KripkeModel RelType AtomType State)
+  (φ ψ: DLForm RelType AtomType)
+  (s: State):
+    eval M (disj φ ψ) s ↔ (eval M φ s ∨ eval M ψ s) := by
+      simp[disj, not, eval]
+      constructor
+      · by_cases hφ : eval M φ s
+        · intro _
+          left
+          assumption
+        · intro h
+          right
+          exact h hφ
+      · rintro (hφ | hψ)
+        · intro _
+          contradiction
+        · intro _
+          assumption
+
+@[simp] theorem eval_not_iff
+  (M: KripkeModel RelType AtomType State)
+  (φ: DLForm RelType AtomType)
+  (s: State):
+    eval M (not φ) s ↔ ¬ eval M φ s := by
+      simp[not, eval]
 
 def equiv {RelType AtomType State: Type} (φ ψ: DLForm RelType AtomType): Prop :=
   ∀ (model: KripkeModel RelType AtomType State) (state: State), eval model φ state ↔ eval model ψ state
+
+theorem equiv_rfl (φ : DLForm RelType AtomType) :
+  @equiv RelType AtomType State φ φ := by
+    intro s
+    simp
+
+theorem equiv_symm
+  (h: @equiv RelType AtomType State φ ψ):
+  @equiv RelType AtomType State ψ φ := by
+    simp_all[equiv]
+
+theorem equiv_trans
+  (h₁: @equiv RelType AtomType State φ ψ)
+  (h₂: @equiv RelType AtomType State ψ ρ):
+  @equiv RelType AtomType State φ ρ := by
+    simp_all[equiv]
 
 def nonBranching (model: KripkeModel RelType AtomType State): Prop :=
   ∀ (relAtom: RelType) (s₀ s₁ s₂: State), (model.rel relAtom s₀ s₁ ∧ model.rel relAtom s₀ s₂) → s₁ = s₂

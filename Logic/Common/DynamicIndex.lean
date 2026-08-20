@@ -38,15 +38,6 @@ inductive DynIndex where
   | cons : DynIndex → DynIndexSym → DynIndex  -- s ∘ᵢ i, where s is a dynamic index and i a dynamic index symbol
 deriving DecidableEq
 
-def line (ι: DynIndex) (n: Nat) :=
-  DynIndex.cons ι (DynIndexSym.line n)
-
-def dollar (ι: DynIndex) :=
-  DynIndex.cons ι DynIndexSym.dollar
-
-def hash (ι: DynIndex) :=
-  DynIndex.cons ι DynIndexSym.hash
-
 instance : Coe Nat DynIndexSym where
   coe := DynIndexSym.line
 
@@ -55,5 +46,21 @@ notation "$" => DynIndexSym.dollar
 notation "#" => DynIndexSym.hash
 notation "ι" => DynIndexSym.line
 infixl:80 "∘ᵢ" => DynIndex.cons
+
+@[simp] theorem root_neq_cons (s: DynIndex) (i: DynIndexSym) :
+  ε ≠ s ∘ᵢ i := by
+    intro h
+    cases h
+
+@[simp] theorem cons_inj (s₁ s₂ : DynIndex) (i₁ i₂: DynIndexSym) :
+  s₁ ∘ᵢ i₁ = s₂ ∘ᵢ i₂ ↔ s₁ = s₂ ∧ i₁ = i₂ := by
+    constructor
+    · intro h
+      cases h
+      exact ⟨rfl, rfl⟩
+    · intro h
+      rcases h with ⟨s_eq, i_eq⟩
+      simp
+      trivial
 
 end Logic.DL

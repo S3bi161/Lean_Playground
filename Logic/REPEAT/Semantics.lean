@@ -192,17 +192,79 @@ def cftNoJunk (cft: CFTrace) : Prop :=
 def validCFTrace (cft: CFTrace) : Prop :=
   cftClosure cft ∧ cftNoJunk cft ∧ cft.Q.Nodup
 
+/- A few helpful projection lemmas. Instead of using a projection validCFTrace.1.2.2.2.1 or similar, you can use the
+  readable named projection lemmas instead
+-/
 
+theorem validCFTrace.rootClosure (h: validCFTrace cft) :
+  rootClosure cft := h.1.1
+
+theorem validCFTrace.callClosure (h: validCFTrace cft) :
+  callClosure cft := h.1.2.1
+
+theorem validCFTrace.assignClosure (h: validCFTrace cft) :
+  assignClosure cft := h.1.2.2.1
+
+theorem validCFTrace.returnClosure (h: validCFTrace cft) :
+  returnClosure cft := h.1.2.2.2.1
+
+theorem validCFTrace.repeatClosure (h: validCFTrace cft) :
+  repeatClosure cft := h.1.2.2.2.2.1
+
+theorem validCFTrace.repeatReturnClosure (h: validCFTrace cft) :
+  repeatReturnClosure cft := h.1.2.2.2.2.2.1
+
+theorem validCFTrace.callReturnClosure (h: validCFTrace cft) :
+  callReturnClosure cft := h.1.2.2.2.2.2.2
+
+theorem validCFTrace.noJunkCalls (h: validCFTrace cft) :
+  noJunkCalls cft := h.2.1.1
+
+theorem validCFTrace.noJunkLines (h: validCFTrace cft) :
+  noJunkLines cft := h.2.1.2.1
+
+theorem validCFTrace.noJunkReturns (h: validCFTrace cft) :
+  noJunkReturns cft := h.2.1.2.2.1
+
+theorem validCFTrace.noJunkRepeats (h: validCFTrace cft) :
+  noJunkRepeats cft := h.2.1.2.2.2
+
+theorem validCFTrace.Nodup (h: validCFTrace cft) :
+  cft.Q.Nodup := h.2.2
+
+-- s i+1 ∈ Q → s i ∈ Q in a valid cft
+theorem validCFTrace.line_predecessor
+  (cft: CFTrace)
+  (hcftValid: validCFTrace cft)
+  (hline: (s ∘ᵢ ι (i+1)) ∈ cft.Q) :
+  ((s ∘ᵢ i) ∈ cft.Q) := by
+    rcases hcftValid.noJunkLines s i hline with ⟨v, e₀, e₁, hline', heq⟩ | ⟨e, hline', heq⟩
+    · exact hline'
+    · exact hline'
+
+-- s i+1 ∈ Q → stmt (s i) is assignment or returnIf
+theorem line_successor_origin
+  (cft: CFTrace)
+  (hcftValid: validCFTrace cft)
+  (hline: (s ∘ᵢ ι (i+1) ) ∈ cft.Q):
+  (∃ v e₀ e₁, stmt cft (s ∘ᵢ i) = some (Stmt.assign v e₀ e₁)) ∨
+  (∃ e, stmt cft (s ∘ᵢ i) = some (Stmt.returnIf e)) := by
+    rcases hcftValid.noJunkLines s i hline with ⟨v, e₀, e₁, hline', heq⟩ | ⟨e, hline', heq⟩
+    · left
+      exists v, e₀, e₁
+    · right
+      exists e
 
 /- # Liberal Executions and variable valuations -/
 
 
 /--
-Liberal Execution quadruple Q = (P, seed), where P is a control flow trace and seed provides initial variable values
+Liberal Execution triple Q = (P, val₀, seed), where P is a control flow trace, val₀ provides initial variable values and seed random variable values
 -/
 structure LiberalExecution where
   cft : CFTrace
-  seed : DynIndex → Var → Int → Int
+  val₀ : Var → Int → Int
+  seed : DynIndex → LocVar → Int → Int
 
 -- val is an arbitrary variable valuation. Validity of a valuation based on a liberal execution is defined as prop mirroring the paper definition
 abbrev Valuation :=
@@ -223,17 +285,49 @@ mutual
         0
 end
 
+@[simp] theorem evalExpr_const :
+  evalExpr cft val s (Expr.const c) = c := rfl
+
+@[simp] theorem evalExpr_access :
+  evalExpr cft val s (Expr.access x e) = val s x (evalExpr cft val s e) := rfl
+
+@[simp] theorem evalExpr_sub :
+  evalExpr cft val s (Expr.sub e₁ e₂) = evalExpr cft val s e₁ - evalExpr cft val s e₂ := rfl
+
+@[simp] theorem evalExpr_cond :
+  evalExpr cft val s (Expr.cond c) = evalCond cft val s c := rfl
+
+@[simp] theorem evalCond_le :
+  evalCond cft val s (Cond.le e₁ e₂) = if evalExpr cft val s e₁ ≤ evalExpr cft val s e₂ then 1 else 0 := rfl
+
+-- using the simp lemmas above, simp can evaluate expressions & conditions on its own
+example :
+  evalExpr cft val s (Expr.const 0) = 0 := by
+    simp
+
+example :
+  evalCond cft val s (Cond.le (Expr.const 1) (Expr.const 0)) = 0 := by
+    simp
+
+
 -- constrain val to be a valid val on given liberalExecution
 -- val(ε) = seed(ε)
 def valRoot (val: Valuation) (q: LiberalExecution) : Prop :=
-  val ε = q.seed ε
+  val ε = q.val₀
+
+-- val (s0) (x) = val (s) (x), if x ∈ GlobVar
+def valCallGlobal (val: Valuation) (q: LiberalExecution) : Prop :=
+  ∀ s expr args proc,
+    stmt q.cft s = some (Stmt.call expr args) ∧
+    q.cft.tar s = some proc →
+      ∀ x, (val (s ∘ᵢ ι 0)) (Var.glob x) = val s (Var.glob x)
 
 -- val(s0) (x) = seed(s0) (x) if x not a param
 def valCallNoPar (val: Valuation) (q: LiberalExecution) : Prop :=
   ∀ s expr args proc,
     stmt q.cft s = some (Stmt.call expr args) ∧
     q.cft.tar s = some proc →
-      ∀ x, (x ∉ proc.params → val (s ∘ᵢ ι 0) x = q.seed (s ∘ᵢ ι 0) x)
+      ∀ x, (x ∉ proc.params → val (s ∘ᵢ ι 0) (Var.loc x) = q.seed (s ∘ᵢ ι 0) x)
 
 -- val(s0) (x) = val(s) (y) if x is param and y is arg for x
 def valCallPar (val: Valuation) (q: LiberalExecution) : Prop :=
@@ -241,10 +335,10 @@ def valCallPar (val: Valuation) (q: LiberalExecution) : Prop :=
     stmt q.cft s = some (Stmt.call expr args) ∧
     q.cft.tar s = some proc ∧
     ∀ x y, (x, y) ∈ (List.zip proc.params args) →
-      (val (s ∘ᵢ ι 0) x =
+      (val (s ∘ᵢ ι 0) (Var.loc x) =
        val s (match y with         -- y is of type arg, which can be either ref or var
               | Arg.var v => v
-              | Arg.ref v => v))
+              | Arg.ref v => (Var.loc v)))
 
 -- val(s i+1) (x) (k) = eval (s i, rhs) if stmt (s i) is assignment `x[e] = rhs` with eval(s i, e) = k
 def valAssignHit (val: Valuation) (q: LiberalExecution) : Prop :=
@@ -300,13 +394,19 @@ def valRepeatReturn (val: Valuation) (q: LiberalExecution) : Prop :=
     (s ∘ᵢ $) ∘ᵢ # ∈ q.cft.Q →
       val (s ∘ᵢ #) = val ((s ∘ᵢ $) ∘ᵢ #)
 
+def valCallReturnGlobal (val: Valuation) (q: LiberalExecution) : Prop :=
+  ∀ s i expr args proc,
+    stmt q.cft (s ∘ᵢ ι i) = some (Stmt.call expr args) ∧
+    q.cft.tar (s ∘ᵢ ι i) = some proc →
+      ∀ x, val (s ∘ᵢ ι (i+1)) (Var.glob x) = val ((s ∘ᵢ ι i) ∘ᵢ #) (Var.glob x)
+
 -- val (s i+1) (x) = val (s i) (x) if stmtm (s i) is `call expr args` and no args are passed by `ref`
 def valCallReturnByValue (val: Valuation) (q: LiberalExecution) : Prop :=
   ∀ s i expr args proc,
     stmt q.cft (s ∘ᵢ ι i) = some (Stmt.call expr args) ∧
     q.cft.tar (s ∘ᵢ ι i) = some proc ∧
     ∀ x, Arg.ref x ∉ args →
-      (val (s ∘ᵢ ι (i+1)) x = val (s ∘ᵢ ι i) x)
+      (val (s ∘ᵢ ι (i+1)) (Var.loc x) = val (s ∘ᵢ ι i) (Var.loc x))
 
 -- val (s i+1) (x) = val (s i #) (y) if stmt (s i) is `call expr args` and x was passed for param x by `ref`
 def valCallReturnByRef (val: Valuation) (q: LiberalExecution) : Prop :=
@@ -314,11 +414,13 @@ def valCallReturnByRef (val: Valuation) (q: LiberalExecution) : Prop :=
     stmt q.cft (s ∘ᵢ ι i) = some (Stmt.call expr args) ∧
     q.cft.tar (s ∘ᵢ ι i) = some proc ∧
     ∀ x y, (y, Arg.ref x) ∈ List.zip proc.params args →
-      (val (s ∘ᵢ ι (i +1)) x = val ((s ∘ᵢ ι i) ∘ᵢ #) y)
+      (val (s ∘ᵢ ι (i +1)) (Var.loc x) = val ((s ∘ᵢ ι i) ∘ᵢ #) (Var.loc y))
+
 
 -- a valuation is valid if it satisfies all clauses above
 def validValuation (val: Valuation) (q: LiberalExecution) : Prop :=
   valRoot val q ∧
+  valCallGlobal val q ∧
   valCallNoPar val q ∧
   valCallPar val q ∧
   valAssignHit val q ∧
@@ -329,10 +431,73 @@ def validValuation (val: Valuation) (q: LiberalExecution) : Prop :=
   valRepeat val q ∧
   valRepeatEntry val q ∧
   valRepeatReturn val q ∧
+  valCallReturnGlobal val q ∧
   valCallReturnByValue val q ∧
   valCallReturnByRef val q
 
+/- Projection theorems for validValuation -/
+theorem validValuation.valRoot (q: LiberalExecution) (h: validValuation val q) :
+  valRoot val q := h.1
 
+theorem validValuation.valCallGlobal (q: LiberalExecution) (h: validValuation val q) :
+  valCallGlobal val q := h.2.1
+
+theorem validValuation.valCallNoPar (q: LiberalExecution) (h: validValuation val q) :
+  valCallNoPar val q := h.2.2.1
+
+theorem validValuation.valCallPar (q: LiberalExecution) (h: validValuation val q) :
+  valCallPar val q := h.2.2.2.1
+
+theorem validValuation.valAssignHit (q: LiberalExecution) (h: validValuation val q) :
+  valAssignHit val q := h.2.2.2.2.1
+
+theorem validValuation.valAssignMiss (q: LiberalExecution) (h: validValuation val q) :
+  valAssignMiss val q := h.2.2.2.2.2.1
+
+theorem validValuation.valAssignOther (q: LiberalExecution) (h: validValuation val q) :
+  valAssignOther val q := h.2.2.2.2.2.2.1
+
+theorem validValuation.valNoReturn (q: LiberalExecution) (h: validValuation val q) :
+  valNoReturn val q := h.2.2.2.2.2.2.2.1
+
+theorem validValuation.valReturn (q: LiberalExecution) (h: validValuation val q) :
+  valReturn val q := h.2.2.2.2.2.2.2.2.1
+
+theorem validValuation.valRepeat (q: LiberalExecution) (h: validValuation val q) :
+  valRepeat val q := h.2.2.2.2.2.2.2.2.2.1
+
+theorem validValuation.valRepeatEntry (q: LiberalExecution) (h: validValuation val q) :
+  valRepeatEntry val q := h.2.2.2.2.2.2.2.2.2.2.1
+
+theorem validValuation.valRepeatReturn (q: LiberalExecution) (h: validValuation val q) :
+  valRepeatReturn val q := h.2.2.2.2.2.2.2.2.2.2.2.1
+
+theorem validValuation.valCallReturnGlobal (q: LiberalExecution) (h: validValuation val q) :
+  valCallReturnGlobal val q := h.2.2.2.2.2.2.2.2.2.2.2.2.1
+
+theorem validValuation.valCallReturnByValue (q: LiberalExecution) (h: validValuation val q) :
+  valCallReturnByValue val q := h.2.2.2.2.2.2.2.2.2.2.2.2.2.1
+
+theorem validValuation.valCallReturnByRef (q: LiberalExecution) (h: validValuation val q) :
+  valCallReturnByRef val q := h.2.2.2.2.2.2.2.2.2.2.2.2.2.2
+
+/- Each assignment changes exactly one array cell-/
+theorem assign_changes_exactly_one_cell
+  (qe: LiberalExecution)
+  (hVal: validValuation val qe)
+  (hStmt: stmt qe.cft (s ∘ᵢ ι i) = some (Stmt.assign v e₀ e₁)):
+
+  val (s ∘ᵢ ι (i+1)) v k =
+  if evalExpr qe.cft val (s ∘ᵢ i) e₀ = k then
+    evalExpr qe.cft val (s ∘ᵢ i) e₁
+  else
+    val (s ∘ᵢ i) v k := by
+
+      by_cases hk: evalExpr qe.cft val (s ∘ᵢ i) e₀ = k
+      · have hHit := hVal.valAssignHit qe s i v k e₀ e₁ ⟨hStmt, hk⟩
+        simp[hk, hHit]
+      · have hMiss := hVal.valAssignMiss qe s i v e₀ e₁ k ⟨hStmt, hk⟩
+        simp[hk, hMiss]
 
 /- # Executions and their Kripke Models -/
 
@@ -398,6 +563,5 @@ def executionModel (e: Execution) :
                                           ua = u ∘ᵢ $
                                         | .hash =>
                                           ua = u ∘ᵢ #
-
 
 end Logic.DL

@@ -2,8 +2,17 @@ namespace Logic.DL
 
 
 --Variables
+inductive LocVar: Type
+  | name: String → LocVar
+deriving DecidableEq, BEq
+
+inductive GlobVar: Type
+  | name: String → GlobVar
+deriving DecidableEq, BEq
+
 inductive Var: Type
-  | name: String → Var
+  | loc: LocVar → Var
+  | glob: GlobVar → Var
 deriving DecidableEq, BEq
 
 
@@ -28,9 +37,18 @@ deriving instance BEq for Cond
 
 -- Arguments
 inductive Arg: Type
-  | var: Var → Arg                   --call by value
-  | ref: Var → Arg                   --call by name
+  | var: Var → Arg                      --call by value
+  | ref: LocVar → Arg                   --call by name
 deriving DecidableEq, BEq
+
+-- Any argument may only be passed once as ref
+def noDuplicateRefs : List Arg → Prop
+  | []                  => True
+  | .ref x :: args_tail => ∀ y, (.ref y ∈ args_tail → y ≠ x) ∧ noDuplicateRefs args_tail
+  | _ :: args_tail      => noDuplicateRefs args_tail
+
+def wellFormedArgs (args: List Arg) : Prop :=
+  noDuplicateRefs args
 
 --Statements
 inductive Stmt: Type
@@ -48,8 +66,16 @@ structure LStmt where
 --Procedures
 structure Proc where
   id: Int                             --proc id with constant name
-  params: List Var                    --formal parameters of a procedure
+  params: List LocVar                 --formal parameters of a procedure
   body: List LStmt                    --procedure body as a list of numbered stmts
+
+def endsWithRepeat : List LStmt → Prop
+  | []              => False
+  | [s]             => s.stmt = Stmt.repeat
+  | _ :: stmts_tail => endsWithRepeat stmts_tail
+
+def wellFormedProc (p: Proc) : Prop :=
+  endsWithRepeat p.body
 
 --Programs are just lists of procedures
 abbrev Program := Int → Option Proc   --may be undefined
@@ -62,16 +88,30 @@ namespace Expr
 def var (v: Var) : Expr :=
   access v (const 0)
 
+@[simp] theorem var_eq_zero_access (v: Var) :
+  var v = access v (const 0) := rfl
 
 --boolean constants
 def TRUE : Expr := const 1
 def FALSE: Expr := const 0
 
+@[simp] theorem TRUE_eq_const_one :
+  TRUE = const 1 := rfl
+
+@[simp] theorem FALSE_eq_const_zero :
+  FALSE = const 0 := rfl
+
 --unary minus
 def unMin (e: Expr): Expr := sub (const 0) e
 
+@[simp] theorem unMin_eq_sub (e: Expr) :
+  unMin e = sub (const 0) e := rfl
+
 --addition
 def add (e₀ e₁: Expr): Expr := sub e₀ (unMin e₁)
+
+@[simp] theorem add_eq_sub (e₀ e₁: Expr) :
+  add e₀ e₁ = sub e₀ (unMin e₁) := rfl
 
 namespace Cond
 

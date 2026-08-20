@@ -94,6 +94,6 @@ In [2] 5.4, DA logic was extended to model LTL. This is done by especially intro
 
 ### References
 1. *A Program Semantics with Dynamic State Indices*. Anonymous author, 2026. Unpublished
-2. [*Dependent Assertions for Specification and Control Flow Verification*](https://doi.org/10.26083/tuda-8042). PhD thesis. Lukas Grätz, 2025. 
+2. [*Dependent Assertions for Specification and Control Flow Verification*](https://doi.org/10.26083/tuda-8042). PhD thesis. Lukas Grätz, 2025.
 3. [*lean4-pdl*](https://github.com/m4lvin/lean4-pdl). GitHub repository.
 4. [*lean-hoare*](https://github.com/goens/lean-hoare). GitHub repository.

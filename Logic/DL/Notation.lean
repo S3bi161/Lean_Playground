@@ -26,7 +26,7 @@ instance: OfNat (Relation DynIndexSym) n where
   ofNat := Relation.relAtom (DynIndexSym.line n)
 
 instance: Coe String Expr where
-  coe s := Expr.var (Var.name s)
+  coe s := Expr.var (Var.loc (LocVar.name s))
 
 instance: Coe Cond DAForm where
   coe c := DLForm.atom c
